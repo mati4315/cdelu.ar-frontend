@@ -89,6 +89,9 @@ export interface FeedItem {
   
   /** Número de comentarios */
   comments_count: number;
+  
+  /** Si el usuario actual ya dio like a este item */
+  is_liked?: boolean;
 }
 
 /**
@@ -406,12 +409,6 @@ export interface FeedService {
   /** Dar/quitar like (toggle) - API UNIFICADA */
   toggleLike(feedId: number): Promise<FeedLikeResponse>;
   
-  /** Dar like específicamente - API UNIFICADA */
-  addLike(feedId: number): Promise<FeedLikeSimpleResponse>;
-  
-  /** Quitar like específicamente - API UNIFICADA */
-  removeLike(feedId: number): Promise<FeedLikeSimpleResponse>;
-  
   /** Obtener comentarios - API UNIFICADA */
   getComments(feedId: number): Promise<FeedComment[]>;
   
@@ -426,17 +423,6 @@ export interface FeedLikeResponse {
   /** Si el item ahora tiene like del usuario */
   liked: boolean;
   
-  /** Nuevo contador de likes */
-  likes_count: number;
-  
-  /** Mensaje de respuesta */
-  message: string;
-}
-
-/**
- * Respuesta simple de like
- */
-export interface FeedLikeSimpleResponse {
   /** Nuevo contador de likes */
   likes_count: number;
   

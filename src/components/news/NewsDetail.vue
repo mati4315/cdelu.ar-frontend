@@ -20,15 +20,27 @@
         <div class="flex items-center mb-8">
           <button @click="handleLike" 
                   class="mr-4 flex items-center py-2 px-4 rounded-md transition-colors duration-150 ease-in-out"
-                  :class="likedLocally ? 
-                    'bg-red-500 text-white hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700' : 
-                    'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'">
+                  :class="{
+                    'bg-red-500 text-white hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700': likedLocally,
+                    'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600': !likedLocally
+                  }">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
               <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" />
             </svg>
-            {{ localLikesCount }} {{ localLikesCount === 1 ? 'Me gusta' : 'Me gustas' }}
+            <span class="font-medium">
+              {{ localLikesCount }} {{ localLikesCount === 1 ? 'Me gusta' : 'Me gustas' }}
+            </span>
           </button>
-          <!-- Enlace a comentarios ya está abajo con el id="comments" -->
+        </div>
+
+        <!-- Botón volver -->
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-6 mb-6">
+          <button @click="goBack" class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-150">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+            </svg>
+            Volver al feed
+          </button>
         </div>
 
         <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
@@ -45,22 +57,26 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useNewsStore } from '@/store/news';
+import { useFeedStore } from '@/store/feedStore';
+import { useAuth } from '@/composables/useAuth';
+import { useTokenValidation } from '@/composables/useTokenValidation';
 import type { News, Comment } from '@/types/api';
+import type { FeedType } from '@/types/feed';
 import CommentSection from './CommentSection.vue';
-// import { useAuthStore } from '@/store/auth';
-
-// Para convertir Markdown a HTML (si la descripción es Markdown)
-// import { marked } from 'marked'; // Necesitarías instalar marked: npm install marked @types/marked
 
 const props = defineProps<{
   id: string | number; // Viene de la ruta como string
 }>();
 
 const route = useRoute();
+const router = useRouter();
 const newsStore = useNewsStore();
-// const authStore = useAuthStore();
+const feedStore = useFeedStore();
+const auth = useAuth();
+const { isAuthenticated } = useAuth();
+const { ensureValidToken } = useTokenValidation();
 
 const noticia = computed<News | null>(() => newsStore.currentNewsItem);
 const isLoading = computed<boolean>(() => newsStore.isLoading);
@@ -68,8 +84,24 @@ const error = computed<string | null>(() => newsStore.error);
 // Filtra los comentarios para solo mostrar los de esta noticia
 const commentsForThisNews = computed<Comment[]>(() => newsStore.comments.filter(comment => comment.news_id === Number(props.id)));
 
-const likedLocally = ref(false); // Placeholder
-const localLikesCount = ref(0);
+// Estado del like - obtener del feed store
+const feedItem = ref<any>(null);
+const likedLocally = computed(() => {
+  const liked = feedItem.value?.is_liked || false;
+  console.log(`🎨 [NEWS DETAIL] likedLocally computed - feedItem exists: ${!!feedItem.value}, is_liked: ${feedItem.value?.is_liked}, result: ${liked}`);
+  
+  // Debug adicional para ver el objeto completo si hay problemas
+  if (feedItem.value && typeof feedItem.value.is_liked !== 'boolean') {
+    console.warn(`⚠️ [NEWS DETAIL] is_liked no es boolean:`, typeof feedItem.value.is_liked, feedItem.value.is_liked);
+  }
+  
+  return liked;
+});
+const localLikesCount = computed(() => {
+  const count = feedItem.value?.likes_count || 0;
+  console.log(`🔢 [NEWS DETAIL] localLikesCount computed - count: ${count}`);
+  return count;
+});
 
 function displayDescription(description: string): string {
   // Aquí podrías implementar una lógica más sofisticada si el contenido es HTML o Markdown
@@ -85,49 +117,85 @@ async function fetchData() {
     newsStore.$patch({ error: 'ID de noticia inválido', currentNewsItem: null });
     return;
   }
+  
+  // Cargar la noticia básica
   await newsStore.fetchNoticia(numericId);
+  
   if (newsStore.currentNewsItem) {
-    localLikesCount.value = newsStore.currentNewsItem.likes_count || 0;
-    // TODO: Verificar si el usuario actual (si está logueado) ya le dio like a esta noticia.
-    // Ejemplo: likedLocally.value = authStore.userHasLiked(numericId);
+    console.log(`📊 [NEWS DETAIL] Noticia cargada - ID: ${numericId}`);
+    
+    // Buscar el item en el feed para obtener el estado real del like
+    try {
+      const foundFeedItem = await feedStore.getPostByOriginalId(1, numericId);
+      if (foundFeedItem) {
+        feedItem.value = foundFeedItem;
+        console.log(`✅ [NEWS DETAIL] Estado del like cargado - feedId: ${foundFeedItem.id}, isLiked: ${foundFeedItem.is_liked}, likes: ${foundFeedItem.likes_count}`);
+      } else {
+        console.log(`⚠️ [NEWS DETAIL] Noticia no encontrada en feed, creando estado por defecto`);
+        feedItem.value = {
+          id: null,
+          is_liked: false,
+          likes_count: newsStore.currentNewsItem.likes_count || 0
+        };
+      }
+    } catch (error) {
+      console.log(`❌ [NEWS DETAIL] Error al buscar en feed:`, error);
+      // Usar estado por defecto si hay error
+      feedItem.value = {
+        id: null,
+        is_liked: false,
+        likes_count: newsStore.currentNewsItem.likes_count || 0
+      };
+    }
   } else if (!newsStore.isLoading) {
     // Si no está cargando y no hay noticia, es probable que no exista
     newsStore.$patch({ error: 'Noticia no encontrada.' });
   }
 }
 
-async function handleLike() {
-  if (!noticia.value) return;
-  // if (!authStore.isAuthenticated) {
-  //   alert('Debes iniciar sesión para dar Me Gusta.');
-  //   return;
-  // }
-  const newsId = noticia.value.id;
+const handleLike = async () => {
+  console.log(`❤️ [NEWS DETAIL] Intentando like en noticia ID: ${noticia.value?.id}`);
+  
+  // Verificar autenticación y token válido
+  if (!isAuthenticated.value) {
+    console.log('❌ [NEWS DETAIL] Usuario no autenticado');
+    return;
+  }
 
-  if (likedLocally.value) {
-    localLikesCount.value--;
-    likedLocally.value = false;
-    try {
-      await newsStore.quitarLike(newsId);
-    } catch (err) {
-      localLikesCount.value++; // Revertir en caso de error
-      likedLocally.value = true;
-      console.error('Error al quitar like:', err);
-      // Podrías mostrar una notificación al usuario
-    }
-  } else {
-    localLikesCount.value++;
-    likedLocally.value = true;
-    try {
-      await newsStore.darLike(newsId);
-    } catch (err) {
-      localLikesCount.value--; // Revertir en caso de error
-      likedLocally.value = false;
-      console.error('Error al dar like:', err);
-      // Podrías mostrar una notificación al usuario
+  if (!ensureValidToken()) {
+    console.log('❌ [NEWS DETAIL] Token inválido o expirado');
+    return;
+  }
+
+  if (!feedItem.value?.id) {
+    console.log(`❌ [NEWS DETAIL] No se encontró el item en el feed`);
+    return;
+  }
+
+  try {
+    console.log(`🔄 [NEWS DETAIL] Dando like - Feed ID: ${feedItem.value.id}, Original ID: ${noticia.value!.id}`);
+    
+    // Usar toggleLike del feedStore
+    const response = await feedStore.toggleLike(feedItem.value.id);
+    
+    // Actualizar el feedItem con la respuesta del servidor
+    feedItem.value = {
+      ...feedItem.value,
+      is_liked: response.liked,
+      likes_count: response.likes_count
+    };
+    
+    console.log(`✅ [NEWS DETAIL] Like procesado exitosamente: liked=${response.liked}, count=${response.likes_count}`);
+    
+  } catch (error: any) {
+    console.log(`❌ [NEWS DETAIL] Error al dar/quitar like:`, error);
+    
+    // Si el error es por token expirado, ya se manejó en el service
+    if (error.message?.includes('sesión ha expirado')) {
+      return; // Ya se manejó en el service
     }
   }
-}
+};
 
 function formatDate(dateString: string): string {
   try {
@@ -153,6 +221,27 @@ onMounted(() => {
   }
 });
 
+const goBack = () => {
+  // Verificar si hay información de la pestaña en los query parameters
+  const fromTab = route.query.from_tab as string;
+  
+  if (fromTab && ['todo', 'noticias', 'comunidad'].includes(fromTab)) {
+    // Regresar con la pestaña preservada
+    console.log(`🔙 [NEWS DETAIL] Regresando al feed con pestaña: ${fromTab}`);
+    router.push({
+      path: '/',
+      query: { tab: fromTab }
+    });
+  } else {
+    // Regresar al feed sin pestaña específica (por defecto 'noticias' para noticias)
+    console.log(`🔙 [NEWS DETAIL] Regresando al feed con pestaña por defecto: noticias`);
+    router.push({
+      path: '/',
+      query: { tab: 'noticias' }
+    });
+  }
+};
+
 </script>
 
 <style scoped>
@@ -164,4 +253,4 @@ onMounted(() => {
     margin-top: 1em;
     margin-bottom: 1em;
 }
-</style> 
+</style>

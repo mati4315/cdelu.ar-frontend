@@ -350,14 +350,27 @@ export const useFeedStore = defineStore('feed', {
     },
 
     // Actualizar like de un item específico
-    updateItemLike(itemId: number, newLikesCount: number) {
-      console.log(`❤️ [FEED STORE] updateItemLike - id: ${itemId}, likes: ${newLikesCount}`);
+    updateItemLike(itemId: number, newLikesCount: number, isLiked?: boolean) {
+      console.log(`❤️ [FEED STORE] updateItemLike - id: ${itemId}, likes: ${newLikesCount}, isLiked: ${isLiked}`);
+      
+      // Validar que newLikesCount sea un número válido
+      if (typeof newLikesCount !== 'number' || isNaN(newLikesCount)) {
+        console.warn(`⚠️ [FEED STORE] Invalid likes_count received: ${newLikesCount}, manteniendo valor actual`);
+        return;
+      }
       
       // Actualizar en todas las pestañas donde aparezca el item
       [this.allContent, this.newsContent, this.communityContent].forEach(content => {
         const item = content.find(item => item.id === itemId);
         if (item) {
           item.likes_count = newLikesCount;
+          
+          // Actualizar estado de like del usuario si se proporciona
+          if (typeof isLiked === 'boolean') {
+            item.is_liked = isLiked;
+          }
+          
+          console.log(`✅ [FEED STORE] Updated likes for item ${itemId}: ${newLikesCount} (isLiked: ${item.is_liked})`);
         }
       });
     },
@@ -376,53 +389,55 @@ export const useFeedStore = defineStore('feed', {
     },
 
     // ❤️ MÉTODOS PARA LIKES UNIFICADOS - API NUEVA
-    async toggleLike(item: FeedItem) {
-      console.log(`❤️ [FEED STORE] toggleLike called - feedId: ${item.id}`);
+    async toggleLike(feedId: number): Promise<{ liked: boolean; likes_count: number; message: string }> {
+      console.log(`❤️ [FEED STORE] toggleLike called - feedId: ${feedId}`);
       
       try {
-        const response = await feedService.toggleLike(item.id);
+        const response = await feedService.toggleLike(feedId);
+        console.log(`📝 [FEED STORE] Raw backend response:`, response);
         
-        // Actualizar contadores en todas las pestañas
-        this.updateItemLike(item.id, response.likes_count);
+        // Validar que tenemos una respuesta válida
+        if (!response) {
+          console.warn(`⚠️ [FEED STORE] Empty response from backend`);
+          globalNotifications.apiError('Respuesta vacía del servidor');
+          return { liked: false, likes_count: 0, message: 'Error: respuesta vacía' };
+        }
         
-        // Mostrar notificación
-        const action = response.liked ? 'agregado' : 'eliminado';
-        globalNotifications.success('Like actualizado', `Me gusta ${action} correctamente`);
+        // Validar likes_count
+        if (response.likes_count === undefined || response.likes_count === null) {
+          console.warn(`⚠️ [FEED STORE] Backend response missing likes_count:`, response);
+        }
+        
+        // Actualizar el item en el store con el estado completo
+        this.updateItemLike(feedId, response.likes_count || 0, response.liked);
+        
+        // Mostrar notificación de éxito
+        const message = response.message || (response.liked ? 'Like agregado' : 'Like removido');
+        globalNotifications.success(message);
         
         return response;
+        
       } catch (error: any) {
-        console.error('❌ [FEED STORE] Error al dar/quitar like:', error);
-        globalNotifications.apiError(error, 'al actualizar el like');
-        throw error;
-      }
-    },
-
-    async addLike(item: FeedItem) {
-      console.log(`❤️ [FEED STORE] addLike called - feedId: ${item.id}`);
-      
-      try {
-        const response = await feedService.addLike(item.id);
-        this.updateItemLike(item.id, response.likes_count);
-        globalNotifications.success('¡Me gusta!', 'Tu like ha sido registrado');
-        return response;
-      } catch (error: any) {
-        console.error('❌ [FEED STORE] Error al dar like:', error);
-        globalNotifications.apiError(error, 'al dar like');
-        throw error;
-      }
-    },
-
-    async removeLike(item: FeedItem) {
-      console.log(`💔 [FEED STORE] removeLike called - feedId: ${item.id}`);
-      
-      try {
-        const response = await feedService.removeLike(item.id);
-        this.updateItemLike(item.id, response.likes_count);
-        globalNotifications.info('Like eliminado', 'Tu like ha sido retirado');
-        return response;
-      } catch (error: any) {
-        console.error('❌ [FEED STORE] Error al quitar like:', error);
-        globalNotifications.apiError(error, 'al quitar like');
+        console.log(`❌ [FEED STORE] Error al dar/quitar like:`, error);
+        
+        // Manejo específico de errores 400 de likes duplicados
+        if (error.message?.includes('ya has dado like') || 
+            error.message?.includes('already liked') ||
+            error.message?.includes('Like removido (ya existía)')) {
+          
+          console.log(`🔄 [FEED STORE] Manejo especial de like duplicado`);
+          
+          // Si el error indica que el like ya existía, actualizar UI como si se hubiera quitado
+          this.updateItemLike(feedId, 0, false); // Asumir que se quitó el like
+          globalNotifications.info('Like actualizado');
+          return { liked: false, likes_count: 0, message: 'Like actualizado' };
+        }
+        
+        // Para otros errores, mostrar mensaje genérico
+        const errorMessage = error.message || 'Error al procesar like';
+        globalNotifications.apiError(errorMessage);
+        
+        // Revertir cambios optimistas si los hubiera
         throw error;
       }
     },
@@ -460,15 +475,16 @@ export const useFeedStore = defineStore('feed', {
     },
 
     // 📄 MÉTODO PARA OBTENER UN ITEM ESPECÍFICO POR ORIGINAL_ID
-    async getPostByOriginalId(type: number, originalId: number) {
+    async getPostByOriginalId(type: FeedType, originalId: number): Promise<FeedItem> {
       console.log(`🔍 [FEED STORE] getPostByOriginalId called - type: ${type}, originalId: ${originalId}`);
       
       try {
-        const item = await feedService.getPostByOriginalId(type as FeedType, originalId);
-        return item;
-      } catch (error: any) {
-        console.error('❌ [FEED STORE] Error al cargar post por original_id:', error);
-        globalNotifications.apiError(error, 'al cargar el contenido');
+        const response = await feedService.getPostByOriginalId(type, originalId);
+        console.log(`🔍 [FEED STORE] getPostByOriginalId response:`, response);
+        console.log(`🔍 [FEED STORE] is_liked field specifically:`, response.is_liked, typeof response.is_liked);
+        return response;
+      } catch (error) {
+        console.error('❌ [FEED STORE] Error in getPostByOriginalId:', error);
         throw error;
       }
     },

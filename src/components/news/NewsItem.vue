@@ -92,15 +92,15 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import type { News } from '@/types/api';
-import { useNewsStore } from '@/store/news';
-// import { useAuthStore } from '@/store/auth';
+import { useFeedStore } from '@/store/feedStore';
+import { useAuth } from '@/composables/useAuth';
 
 const props = defineProps<{
   noticia: News;
 }>();
 
-const newsStore = useNewsStore();
-// const authStore = useAuthStore();
+const feedStore = useFeedStore();
+const { isAuthenticated } = useAuth();
 
 const MAX_CHARS_SUMMARY = 200; // Aumentado para mejor UX móvil
 const mostrarCompleta = ref(false);
@@ -120,33 +120,58 @@ function toggleMostrarCompleta(): void {
 }
 
 async function handleLike() {
-  // TODO: Verificar autenticación cuando esté implementada
-  // if (!authStore.isAuthenticated) {
-  //   alert('Debes iniciar sesión para dar Me Gusta.');
-  //   return;
-  // }
+  // Verificar autenticación
+  if (!isAuthenticated.value) {
+    console.warn('⚠️ Usuario no autenticado');
+    return;
+  }
 
-  const wasLiked = likedLocally.value;
-  const originalCount = localLikesCount.value;
+  console.log(`❤️ [NEWS ITEM] Intentando like en noticia ID: ${props.noticia.id}`);
 
   try {
-    if (likedLocally.value) {
-      // Optimistic update
-      localLikesCount.value--;
-      likedLocally.value = false;
-      await newsStore.quitarLike(props.noticia.id);
-    } else {
-      // Optimistic update
-      localLikesCount.value++;
-      likedLocally.value = true;
-      await newsStore.darLike(props.noticia.id);
+    // Primero obtener el feed item correcto usando el original_id
+    const feedItem = await feedStore.getPostByOriginalId(1, props.noticia.id); // type: 1 para noticias
+    
+    if (!feedItem) {
+      console.error('❌ [NEWS ITEM] Noticia no encontrada en el feed');
+      throw new Error('Esta noticia no está disponible en el feed para dar likes');
     }
-  } catch (error) {
-    // Revertir cambios en caso de error
-    localLikesCount.value = originalCount;
-    likedLocally.value = wasLiked;
-    console.error('Error al manejar like:', error);
-    // TODO: Mostrar notificación de error al usuario
+    
+    console.log(`🔄 [NEWS ITEM] Noticia encontrada en feed - Feed ID: ${feedItem.id}, Original ID: ${feedItem.original_id}`);
+
+    // Usar el método unificado del feedStore
+    const response = await feedStore.toggleLike(feedItem);
+    
+    // Actualizar estado local basado en respuesta
+    if (response && typeof response.likes_count === 'number') {
+      localLikesCount.value = response.likes_count;
+      likedLocally.value = response.liked ?? !likedLocally.value;
+    } else {
+      // Fallback optimista
+      if (likedLocally.value) {
+        localLikesCount.value--;
+        likedLocally.value = false;
+      } else {
+        localLikesCount.value++;
+        likedLocally.value = true;
+      }
+    }
+    
+    console.log(`✅ [NEWS ITEM] Like ${likedLocally.value ? 'agregado' : 'removido'} exitosamente`);
+    
+  } catch (err: any) {
+    console.error('❌ [NEWS ITEM] Error al dar/quitar like:', err);
+    
+    // Manejar diferentes tipos de errores
+    if (err.message?.includes('Ya has dado like') || err.message?.includes('like ya existe')) {
+      // Si ya dio like, actualizar estado local
+      likedLocally.value = true;
+      console.log('🔄 [NEWS ITEM] Actualizando estado: like ya existe');
+    } else if (err.message?.includes('No has dado like') || err.message?.includes('like no existe')) {
+      // Si no había dado like, actualizar estado local  
+      likedLocally.value = false;
+      console.log('🔄 [NEWS ITEM] Actualizando estado: like no existe');
+    }
   }
 }
 

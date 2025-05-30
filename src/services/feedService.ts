@@ -19,6 +19,9 @@ class FeedService {
   private apiClient: AxiosInstance;
 
   constructor() {
+    // Sincronizar token desde localStorage al inicializar
+    token = localStorage.getItem('token');
+    
     this.apiClient = axios.create({
       baseURL: BASE_URL,
       headers: {
@@ -29,8 +32,13 @@ class FeedService {
 
     // Interceptor para agregar token automáticamente
     this.apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+      // Siempre obtener el token más reciente de localStorage
+      const currentToken = localStorage.getItem('token');
+      if (currentToken) {
+        config.headers.Authorization = `Bearer ${currentToken}`;
+        console.log(`🔑 [FEED SERVICE] Using token: ${currentToken.substring(0, 20)}...`);
+      } else {
+        console.warn('⚠️ [FEED SERVICE] No token available for request');
       }
       return config;
     });
@@ -59,11 +67,67 @@ class FeedService {
 
   // Manejo de errores de API
   private handleApiError(error: any): Error {
-    if (axios.isAxiosError(error) && error.response) {
-      const apiError = error.response.data as FeedApiError;
-      return new Error(apiError.message || 'Error en la API del feed');
+    console.log('[FEED SERVICE] Error en request:', error);
+    
+    let errorMessage = 'Error en la API del feed';
+    
+    if (error.response) {
+      const status = error.response.status;
+      const data = error.response.data;
+      
+      // Logging específico para errores 400 de likes
+      if (status === 400 && error.config?.url?.includes('/like')) {
+        console.log('🚨 [FEED SERVICE] Error 400 en like:', {
+          url: error.config.url,
+          method: error.config.method,
+          data: data,
+          feedId: error.config.url.match(/\/feed\/(\d+)\/like/)?.[1]
+        });
+      }
+      
+      // Logging específico para errores 401 (token expirado)
+      if (status === 401) {
+        console.log('🚨 [FEED SERVICE] Error 401 - Token expirado:', {
+          url: error.config.url,
+          method: error.config.method,
+          data: data,
+          currentToken: this.apiClient.defaults.headers.Authorization?.toString().substring(0, 20) + '...'
+        });
+      }
+      
+      switch (status) {
+        case 400:
+          errorMessage = data?.message || 'Solicitud inválida';
+          break;
+        case 401:
+          // Limpiar token expirado del localStorage
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          errorMessage = 'Tu sesión ha expirado. Por favor inicia sesión nuevamente.';
+          
+          // Opcional: Redirect a login
+          // window.location.href = '/login';
+          break;
+        case 403:
+          errorMessage = 'No tienes permisos para realizar esta acción';
+          break;
+        case 404:
+          errorMessage = 'Recurso no encontrado';
+          break;
+        case 409:
+          errorMessage = data?.message || 'Conflicto en la operación';
+          break;
+        case 500:
+          errorMessage = 'Error interno del servidor';
+          break;
+        default:
+          errorMessage = data?.message || `Error ${status}`;
+      }
+    } else if (error.request) {
+      errorMessage = 'No se pudo conectar con el servidor';
     }
-    return new Error(error.message || 'Error desconocido en el feed');
+    
+    return new Error(errorMessage);
   }
 
   // NUEVO: Feed unificado (pestaña "Todo")
@@ -127,15 +191,44 @@ class FeedService {
     console.log(`🔍 [FEED SERVICE] getPostByOriginalId called - type: ${type}, originalId: ${originalId}`);
     
     try {
-      // Usar la ruta específica para obtener por original_id
-      // Esto debería coincidir con las rutas que espera el backend
-      const endpoint = type === 1 ? `/news/${originalId}` : `/com/${originalId}`;
-      const response = await this.apiClient.get<FeedItem>(endpoint);
+      // Intentar primero el endpoint específico sin usar el interceptor de errores
+      const response = await axios.get<FeedItem>(`${BASE_URL}/feed/by-original-id/${type}/${originalId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
       console.log('✅ [FEED SERVICE] getPostByOriginalId response:', response.data);
       return response.data;
-    } catch (error) {
-      console.error('❌ [FEED SERVICE] Error in getPostByOriginalId:', error);
-      throw error;
+    } catch (error: any) {
+      // Si el endpoint específico no existe (404), hacer fallback a búsqueda en feed
+      if (error.response?.status === 404) {
+        console.log('⚠️ [FEED SERVICE] Endpoint específico no encontrado, usando fallback');
+        
+        try {
+          // Buscar en el feed filtrando por tipo y original_id
+          const feedResponse = await this.apiClient.get<FeedResponse>('/feed', {
+            params: { type, limit: 100 } // Buscar en las primeras 100 entradas
+          });
+          
+          const feedItem = feedResponse.data.data.find(item => 
+            item.original_id === originalId && item.type === type
+          );
+          
+          if (feedItem) {
+            console.log('✅ [FEED SERVICE] getPostByOriginalId fallback found:', feedItem);
+            return feedItem;
+          } else {
+            throw new Error(`Item no encontrado en feed - type: ${type}, original_id: ${originalId}`);
+          }
+        } catch (fallbackError) {
+          console.error('❌ [FEED SERVICE] Error in fallback search:', fallbackError);
+          throw fallbackError;
+        }
+      } else {
+        console.error('❌ [FEED SERVICE] Error in getPostByOriginalId:', error);
+        throw error;
+      }
     }
   }
 
@@ -208,44 +301,55 @@ class FeedService {
   }
 
   // ❤️ LIKES - API UNIFICADA usando feedId
-  async toggleLike(feedId: number): Promise<{ liked: boolean; likes_count: number; message: string }> {
-    console.log(`❤️ [FEED SERVICE] toggleLike called - feedId: ${feedId}`);
+  async toggleLike(feedId: number, retryCount = 0): Promise<{ liked: boolean; likes_count: number; message: string }> {
+    console.log(`❤️ [FEED SERVICE] toggleLike called - feedId: ${feedId}${retryCount > 0 ? ` (retry ${retryCount})` : ''}`);
+    console.log(`🔑 [FEED SERVICE] Current token: ${this.apiClient.defaults.headers.Authorization?.toString().substring(0, 20)}...`);
     
     try {
-      const response = await this.apiClient.post<{ liked: boolean; likes_count: number; message: string }>(`/feed/${feedId}/like`);
-      console.log('✅ [FEED SERVICE] toggleLike response:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('❌ [FEED SERVICE] Error in toggleLike:', error);
-      throw error;
-    }
-  }
-
-  // Método específico para dar like
-  async addLike(feedId: number): Promise<{ likes_count: number; message: string }> {
-    console.log(`❤️ [FEED SERVICE] addLike called - feedId: ${feedId}`);
-    
-    try {
-      const response = await this.apiClient.post<{ likes_count: number; message: string }>(`/feed/${feedId}/like`);
-      console.log('✅ [FEED SERVICE] addLike response:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('❌ [FEED SERVICE] Error in addLike:', error);
-      throw error;
-    }
-  }
-
-  // Método específico para quitar like
-  async removeLike(feedId: number): Promise<{ likes_count: number; message: string }> {
-    console.log(`💔 [FEED SERVICE] removeLike called - feedId: ${feedId}`);
-    
-    try {
-      const response = await this.apiClient.delete<{ likes_count: number; message: string }>(`/feed/${feedId}/like`);
-      console.log('✅ [FEED SERVICE] removeLike response:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('❌ [FEED SERVICE] Error in removeLike:', error);
-      throw error;
+      const response = await this.apiClient.post(`/feed/${feedId}/like/toggle`);
+      console.log(`✅ [FEED SERVICE] toggleLike response:`, response.data);
+      
+      // Validar estructura de respuesta
+      const data = response.data;
+      if (!data) {
+        throw new Error('Respuesta vacía del servidor');
+      }
+      
+      // Retornar con valores por defecto si faltan campos
+      return {
+        liked: data.liked ?? true, // Asumir que se agregó like si no se especifica
+        likes_count: data.likes_count ?? 0,
+        message: data.message || 'Operación completada'
+      };
+      
+    } catch (error: any) {
+      console.log(`❌ [FEED SERVICE] Error in toggleLike:`, error);
+      
+      // Manejo específico de errores 400 relacionados con likes duplicados
+      if (error.response?.status === 400) {
+        const errorMessage = error.response.data?.message || '';
+        
+        if (errorMessage.includes('ya has dado like') || errorMessage.includes('already liked')) {
+          console.log(`🔄 [FEED SERVICE] Like ya existe, intentando quitar like`);
+          
+          // Si es primer intento y el error indica like duplicado, 
+          // intentar una vez más (podría ser un toggle que falló)
+          if (retryCount === 0) {
+            await new Promise(resolve => setTimeout(resolve, 500)); // Pequeña pausa
+            return this.toggleLike(feedId, 1);
+          }
+          
+          // Si ya es retry, considerar como exitoso (like ya existía)
+          return {
+            liked: false, // Asumir que se quitó
+            likes_count: 0,
+            message: 'Like removido (ya existía)'
+          };
+        }
+      }
+      
+      // Para otros errores, lanzar la excepción
+      throw this.handleApiError(error);
     }
   }
 

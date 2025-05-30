@@ -243,48 +243,6 @@ export const useNewsStore = defineStore('news', {
       }
     },
 
-    async darLike(noticiaId: number | string) {
-      try {
-        await apiService.darLike(noticiaId);
-        
-        // Actualizar contador en la noticia actual si existe
-        if (this.currentNewsItem && this.currentNewsItem.id === noticiaId) {
-          this.currentNewsItem.likes_count = (this.currentNewsItem.likes_count || 0) + 1;
-        }
-        
-        // Actualizar contador en la lista de noticias
-        const noticiaEnLista = this.newsList.find(n => n.id === noticiaId);
-        if (noticiaEnLista) {
-          noticiaEnLista.likes_count = (noticiaEnLista.likes_count || 0) + 1;
-        }
-      } catch (error: any) {
-        console.error('❌ Error al dar like:', error.message);
-        globalNotifications.error('Error al dar me gusta', 'No se pudo registrar tu like. Inténtalo de nuevo.');
-        throw error;
-      }
-    },
-
-    async quitarLike(noticiaId: number | string) {
-      try {
-        await apiService.quitarLike(noticiaId);
-        
-        // Actualizar contador en la noticia actual si existe
-        if (this.currentNewsItem && this.currentNewsItem.id === noticiaId) {
-          this.currentNewsItem.likes_count = Math.max(0, (this.currentNewsItem.likes_count || 0) - 1);
-        }
-        
-        // Actualizar contador en la lista de noticias
-        const noticiaEnLista = this.newsList.find(n => n.id === noticiaId);
-        if (noticiaEnLista) {
-          noticiaEnLista.likes_count = Math.max(0, (noticiaEnLista.likes_count || 0) - 1);
-        }
-      } catch (error: any) {
-        console.error('❌ Error al quitar like:', error.message);
-        globalNotifications.error('Error al quitar me gusta', 'No se pudo quitar tu like. Inténtalo de nuevo.');
-        throw error;
-      }
-    },
-
     resetNewsState() {
       console.log('🔄 [NEWS STORE] Reiniciando estado de noticias');
       this.newsList = [];

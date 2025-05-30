@@ -1,33 +1,41 @@
 <template>
-  <div class="feed-tabs-container">
-    <div class="feed-tabs">
-      <button
-        v-for="tab in tabs"
-        :key="tab.key"
-        :class="['tab', { 
-          active: currentTab === tab.key,
-          disabled: disabledTabs?.includes(tab.key)
-        }]"
-        :disabled="disabledTabs?.includes(tab.key)"
-        @click="handleTabClick(tab.key)"
-      >
-        <span class="tab-icon">{{ tab.icon }}</span>
-        <span class="tab-label">{{ tab.label }}</span>
-        <span v-if="getTabCount(tab.key)" class="tab-count">
-          {{ formatCount(getTabCount(tab.key)) }}
-        </span>
-      </button>
-    </div>
+  <div>
+    <!-- Spacer para mantener el layout cuando sticky -->
+    <div v-if="isSticky" class="tabs-spacer" :style="{ height: `${tabsHeight}px` }"></div>
     
-    <!-- Indicador de carga en las pestañas -->
-    <div v-if="isLoading" class="tabs-loading">
-      <div class="loading-bar"></div>
+    <div ref="tabsContainer" class="feed-tabs-container" :class="{
+      'sticky': isSticky,
+      'hidden': isHidden
+    }">
+      <div class="feed-tabs">
+        <button
+          v-for="tab in tabs"
+          :key="tab.key"
+          :class="['tab', { 
+            active: currentTab === tab.key,
+            disabled: disabledTabs?.includes(tab.key)
+          }]"
+          :disabled="disabledTabs?.includes(tab.key)"
+          @click="handleTabClick(tab.key)"
+        >
+          <span class="tab-icon">{{ tab.icon }}</span>
+          <span class="tab-label">{{ tab.label }}</span>
+          <span v-if="getTabCount(tab.key)" class="tab-count">
+            {{ formatCount(getTabCount(tab.key)) }}
+          </span>
+        </button>
+      </div>
+      
+      <!-- Indicador de carga en las pestañas -->
+      <div v-if="isLoading" class="tabs-loading">
+        <div class="loading-bar"></div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import type { FeedTabsProps, FeedTabsEmits } from '@/types/feed';
 
 interface Props extends FeedTabsProps {
@@ -73,15 +81,88 @@ const handleTabClick = (tab: 'todo' | 'noticias' | 'comunidad') => {
     emit('tab-change', tab);
   }
 };
+
+// Referencias para sticky behavior
+const tabsContainer = ref<HTMLElement | null>(null);
+const isSticky = ref(false);
+const isHidden = ref(false);
+const lastScrollY = ref(0);
+const tabsHeight = ref(0);
+
+// Función para manejar el scroll
+const handleScroll = () => {
+  if (!tabsContainer.value) return;
+  
+  const currentScrollY = window.scrollY;
+  const rect = tabsContainer.value.getBoundingClientRect();
+  const scrollDirection = currentScrollY > lastScrollY.value ? 'down' : 'up';
+  
+  // Determinar si debe estar sticky (cuando llegue a la parte superior)
+  if (rect.top <= 0) {
+    isSticky.value = true;
+    
+    // Lógica de ocultación basada en dirección del scroll
+    if (scrollDirection === 'up' && currentScrollY > tabsHeight.value) {
+      isHidden.value = true;
+    } else if (scrollDirection === 'down') {
+      isHidden.value = false;
+    }
+  } else {
+    isSticky.value = false;
+    isHidden.value = false;
+  }
+  
+  lastScrollY.value = currentScrollY;
+};
+
+onMounted(() => {
+  if (tabsContainer.value) {
+    tabsHeight.value = tabsContainer.value.offsetHeight;
+  }
+  
+  window.addEventListener('scroll', handleScroll, { passive: true });
+  handleScroll(); // Verificar estado inicial
+});
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleScroll);
+});
 </script>
 
 <style scoped>
+.tabs-spacer {
+  width: 100%;
+  background: transparent;
+}
+
 .feed-tabs-container {
   position: relative;
   background: white;
   border-radius: 12px 12px 0 0;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  transition: transform 0.3s ease;
+  z-index: 10;
+}
+
+.feed-tabs-container.sticky {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 800px;
+  border-radius: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+}
+
+.feed-tabs-container.sticky.hidden {
+  transform: translateX(-50%) translateY(-100%);
+}
+
+.feed-tabs-container.sticky:not(.hidden) {
+  transform: translateX(-50%) translateY(0);
 }
 
 .feed-tabs {
@@ -103,7 +184,7 @@ const handleTabClick = (tab: 'todo' | 'noticias' | 'comunidad') => {
   font-size: 16px;
   font-weight: 500;
   color: #6c757d;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.1s ease;
   position: relative;
   min-height: 60px;
 }
@@ -111,7 +192,7 @@ const handleTabClick = (tab: 'todo' | 'noticias' | 'comunidad') => {
 .tab:hover:not(.disabled) {
   background: rgba(255, 255, 255, 0.5);
   color: #495057;
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .tab.active {
@@ -139,20 +220,20 @@ const handleTabClick = (tab: 'todo' | 'noticias' | 'comunidad') => {
 
 .tab-icon {
   font-size: 20px;
-  transition: transform 0.3s ease;
+  transition: none;
 }
 
 .tab:hover:not(.disabled) .tab-icon {
-  transform: scale(1.1);
+  transform: none;
 }
 
 .tab.active .tab-icon {
-  animation: pulse 2s infinite;
+  /* Eliminada animación pulse */
 }
 
 .tab-label {
   font-weight: inherit;
-  transition: all 0.3s ease;
+  transition: none;
 }
 
 .tab-count {
@@ -164,7 +245,7 @@ const handleTabClick = (tab: 'todo' | 'noticias' | 'comunidad') => {
   min-width: 24px;
   text-align: center;
   backdrop-filter: blur(4px);
-  transition: all 0.3s ease;
+  transition: none;
 }
 
 .tab.active .tab-count {
@@ -194,8 +275,36 @@ const handleTabClick = (tab: 'todo' | 'noticias' | 'comunidad') => {
   animation: loading-gradient 2s ease-in-out infinite;
 }
 
+/* Animaciones mínimas necesarias */
+@keyframes loading-gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
+  .feed-tabs-container.sticky {
+    left: 0;
+    transform: translateX(0);
+    max-width: 100%;
+    width: 100vw;
+  }
+  
+  .feed-tabs-container.sticky.hidden {
+    transform: translateY(-100%);
+  }
+  
+  .feed-tabs-container.sticky:not(.hidden) {
+    transform: translateY(0);
+  }
+  
   .tab {
     padding: 12px 16px;
     font-size: 14px;
@@ -233,6 +342,11 @@ const handleTabClick = (tab: 'todo' | 'noticias' | 'comunidad') => {
     background: #1a1a1a;
   }
   
+  .feed-tabs-container.sticky {
+    background: #1a1a1a;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+  
   .feed-tabs {
     background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
     border-bottom-color: #4a5568;
@@ -261,28 +375,6 @@ const handleTabClick = (tab: 'todo' | 'noticias' | 'comunidad') => {
   }
 }
 
-/* Animaciones */
-@keyframes pulse {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.05);
-  }
-}
-
-@keyframes loading-gradient {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
 /* Efectos de hover mejorados */
 .tab::before {
   content: '';
@@ -293,12 +385,12 @@ const handleTabClick = (tab: 'todo' | 'noticias' | 'comunidad') => {
   bottom: 0;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), transparent);
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: none;
   pointer-events: none;
 }
 
 .tab:hover:not(.disabled)::before {
-  opacity: 1;
+  opacity: 0;
 }
 
 /* Accesibilidad */
