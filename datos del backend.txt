@@ -1,0 +1,132 @@
+ la API de noticias en tu proyecto para entender cómo está configurada.
+Perfecto. Ahora veo que tienes una API de noticias bien definida. Basándome en los archivos encontrados, aquí está toda la información sobre la API de noticias que tu programador frontend necesita:
+API de Noticias - Información Completa para Frontend
+Base URL
+Servidor: http://localhost:3001 (o tu dominio en producción)
+Prefijo de API: /api/v1
+Endpoints Disponibles
+1. Obtener todas las noticias (Público)
+URL: GET /api/v1/news
+Parámetros de consulta:
+page: número de página (mínimo: 1, por defecto: 1)
+limit: elementos por página (mínimo: 1, máximo: 100, por defecto: 10)
+sort: campo de ordenación (ej: published_at, titulo, likes_count, comments_count)
+order: dirección de ordenación (asc o desc)
+Respuesta exitosa (200):
+
+{
+  "data": [
+    {
+      "id": 1,
+      "titulo": "Título de la noticia",
+      "descripcion": "Contenido completo de la noticia",
+      "resumen": "Resumen generado por IA (opcional)",
+      "image_url": "https://ejemplo.com/imagen.jpg",
+      "original_url": "https://fuente-original.com/noticia",
+      "published_at": "2023-10-27T10:00:00.000Z",
+      "is_oficial": true,
+      "created_by": 1,
+      "created_at": "2023-10-27T09:30:00.000Z",
+      "updated_at": "2023-10-27T09:30:00.000Z",
+      "autor": "Nombre del autor",
+      "likes_count": 15,
+      "comments_count": 8
+    }
+  ],
+  "pagination": {
+    "total": 150,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 15
+  }
+}
+
+2. Obtener noticia por ID (Público)
+URL: GET /api/v1/news/:id
+Parámetros de ruta:
+id: ID de la noticia (número entero, mínimo: 1)
+
+
+{
+  "id": 1,
+  "titulo": "Título de la noticia",
+  "descripcion": "Contenido completo",
+  "resumen": "Resumen opcional",
+  "image_url": "https://ejemplo.com/imagen.jpg",
+  "original_url": "https://fuente-original.com/noticia",
+  "published_at": "2023-10-27T10:00:00.000Z",
+  "is_oficial": true,
+  "created_by": 1,
+  "created_at": "2023-10-27T09:30:00.000Z",
+  "updated_at": "2023-10-27T09:30:00.000Z",
+  "autor": "Nombre del autor"
+}
+Crear nueva noticia (Requiere autenticación)
+URL: POST /api/v1/news
+Autenticación: Authorization: Bearer <token>
+Roles permitidos: administrador, colaborador, usuario (para tu caso específico)
+Content-Type: application/json
+Cuerpo de la solicitud:
+
+{
+  "titulo": "Título de la noticia (requerido)",
+  "descripcion": "Descripción completa (requerido)",
+  "image_url": "https://ejemplo.com/imagen.jpg (opcional)",
+  "original_url": "https://fuente.com/noticia (opcional)",
+  "is_oficial": true
+}
+
+{
+  "id": 123,
+  "titulo": "Título de la noticia",
+  "descripcion": "Descripción completa",
+  "resumen": "Resumen generado por IA si is_oficial=true",
+  "image_url": "https://ejemplo.com/imagen.jpg",
+  "original_url": "https://fuente.com/noticia",
+  "published_at": "2023-10-27T10:00:00.000Z",
+  "is_oficial": true,
+  "created_by": 45,
+  "created_at": "2023-10-27T09:30:00.000Z",
+  "updated_at": "2023-10-27T09:30:00.000Z",
+  "autor": "Nombre del usuario creador"
+}
+
+ Actualizar noticia (Requiere autenticación)
+URL: PUT /api/v1/news/:id
+Autenticación: Authorization: Bearer <token>
+Roles permitidos: administrador, colaborador
+Cuerpo de la solicitud: (misma estructura que POST, todos los campos opcionales)
+5. Eliminar noticia (Requiere autenticación)
+URL: DELETE /api/v1/news/:id
+Autenticación: Authorization: Bearer <token>
+Roles permitidos: administrador
+6. Dar like a una noticia
+URL: POST /api/v1/news/:id/like
+Autenticación: Authorization: Bearer <token>
+7. Quitar like
+URL: DELETE /api/v1/news/:id/like
+Autenticación: Authorization: Bearer <token>
+8. Crear comentario
+URL: POST /api/v1/news/:id/comments
+Autenticación: Authorization: Bearer <token>
+
+
+{
+  "content": "Contenido del comentario"
+}
+
+
+9. Obtener comentarios de una noticia
+URL: GET /api/v1/news/:id/comments
+Manejo de Errores
+400 Bad Request: Errores de validación
+401 Unauthorized: Token inválido o no proporcionado
+403 Forbidden: Sin permisos para la operación
+404 Not Found: Noticia no encontrada
+500 Internal Server Error: Error del servidor
+Características Especiales
+Generación automática de contenido con IA: Si is_oficial: true, la API puede generar automáticamente un resumen y mejorar el título usando IA.
+Paginación completa: La API soporta paginación con información del total de elementos y páginas.
+Ordenación: Se puede ordenar por diferentes campos como fecha, likes, comentarios, etc.
+Relaciones: Las noticias incluyen información del autor, conteo de likes y comentarios.
+Con esta información, tu programador frontend puede implementar tanto el scroll infinito como la funcionalidad de crear noticias para usuarios con rol "usuario".
