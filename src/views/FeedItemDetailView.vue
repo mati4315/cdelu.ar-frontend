@@ -178,10 +178,11 @@ const loadItem = async () => {
     const itemType = props.type || route.params.type as string;
     const itemId = props.id || route.params.id as string;
     
-    console.log('🔍 [DETAIL] Loading item:', { type: itemType, id: itemId });
+    console.log('🔍 [DETAIL] Loading item by original_id:', { type: itemType, original_id: itemId });
     
-    // Usar el servicio del store para obtener el item
-    const response = await feedStore.getFeedItem(parseInt(itemType), parseInt(itemId));
+    // Usar el nuevo servicio que obtiene por original_id (ID del post real)
+    // en lugar del feedId (ID del feed unificado)
+    const response = await feedStore.getPostByOriginalId(parseInt(itemType), parseInt(itemId));
     item.value = response;
     
     console.log('✅ [DETAIL] Item loaded:', item.value);

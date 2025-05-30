@@ -301,13 +301,17 @@ const formatNumber = (num: number): string => {
 // Event handlers
 const handleItemClick = () => {
   // Navegar a la página de detalle según el tipo
+  // IMPORTANTE: Usar original_id en lugar de id para la navegación
+  // item.id es del feed unificado, item.original_id es del post real
   if (props.item.type === 1) {
     // Para noticias, usar la ruta existente
-    router.push(`/noticia/${props.item.id}`);
+    router.push(`/noticia/${props.item.original_id}`);
   } else {
-    // Para comunidad, usar la nueva ruta
-    router.push(`/comunidad/${props.item.id}`);
+    // Para comunidad, usar la nueva ruta  
+    router.push(`/comunidad/${props.item.original_id}`);
   }
+  
+  console.log(`🔗 [NAVIGATION] Navegando a post - tipo: ${props.item.type}, original_id: ${props.item.original_id}, feed_id: ${props.item.id}`);
   
   // Emitir evento para compatibilidad
   emit('item-click', props.item);

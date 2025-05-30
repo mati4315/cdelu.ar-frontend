@@ -459,7 +459,21 @@ export const useFeedStore = defineStore('feed', {
       }
     },
 
-    // 📄 MÉTODO PARA OBTENER UN ITEM ESPECÍFICO
+    // 📄 MÉTODO PARA OBTENER UN ITEM ESPECÍFICO POR ORIGINAL_ID
+    async getPostByOriginalId(type: number, originalId: number) {
+      console.log(`🔍 [FEED STORE] getPostByOriginalId called - type: ${type}, originalId: ${originalId}`);
+      
+      try {
+        const item = await feedService.getPostByOriginalId(type as FeedType, originalId);
+        return item;
+      } catch (error: any) {
+        console.error('❌ [FEED STORE] Error al cargar post por original_id:', error);
+        globalNotifications.apiError(error, 'al cargar el contenido');
+        throw error;
+      }
+    },
+
+    // 📄 MÉTODO PARA OBTENER UN ITEM ESPECÍFICO POR FEED_ID (backward compatibility)
     async getFeedItem(type: number, id: number) {
       console.log(`🔍 [FEED STORE] getFeedItem called - type: ${type}, id: ${id}`);
       

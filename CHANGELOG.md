@@ -4,6 +4,58 @@ Todas las notas de cambios significativos en este proyecto serán documentadas e
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (aunque para este ejemplo, empezaremos con una versión inicial).
 
+## [0.5.1] - 2024-12-21
+
+### 🚨 Hotfix Crítico: Corrección de Navegación de Posts
+
+#### 🐛 Problema Identificado y Resuelto
+- **Navegación incorrecta**: Los clics en títulos de posts redirigían a posts incorrectos
+- **Causa raíz**: Uso de `item.id` (feed_id) en lugar de `item.original_id` (post real)
+- **Explicación técnica**: 
+  - `item.id` = ID de la tabla `content_feed` (feed unificado con trigger)
+  - `item.original_id` = ID real del post en su tabla original (news/com)
+
+#### ✅ Correcciones Implementadas
+- **FeedItem.vue**: Navegación actualizada para usar `item.original_id`
+  ```javascript
+  // ANTES (incorrecto)
+  router.push(`/noticia/${props.item.id}`);
+  
+  // AHORA (correcto)  
+  router.push(`/noticia/${props.item.original_id}`);
+  ```
+
+- **feedService.ts**: Nuevo método `getPostByOriginalId()` 
+  - Rutas correctas: `/news/{original_id}` y `/com/{original_id}`
+  - Mantiene compatibilidad con método existente `getFeedItem()`
+  - Logging detallado para debugging
+
+- **feedStore.ts**: Nuevo método `getPostByOriginalId()` en store
+  - Manejo de errores específico para original_id
+  - Backward compatibility mantenida
+
+- **FeedItemDetailView.vue**: Usa nuevo método para carga correcta
+  - Carga posts por `original_id` en lugar de `feed_id`
+  - Logging mejorado para identificar el problema
+
+#### 🔧 Cambios Técnicos Detallados
+- **Rutas de navegación corregidas**: Ahora usan el ID del post original
+- **Servicios duales**: Método específico para `original_id` + compatibilidad con `feed_id`
+- **Logging agregado**: Identificación clara entre `feed_id` vs `original_id`
+- **Documentación**: Comentarios explicativos en código
+
+#### 🎯 Impacto del Fix
+- ✅ **Navegación correcta**: Cada clic lleva al post correcto
+- ✅ **URLs precisas**: `/noticia/56` lleva a la noticia real con ID 56
+- ✅ **Compatibilidad**: Mantiene funcionalidad existente intacta
+- ✅ **Debug mejorado**: Logs claros para futuras investigaciones
+
+#### 🚀 Testing Recomendado
+1. Hacer clic en diferentes títulos de noticias
+2. Verificar que cada clic lleva al post correcto
+3. Probar navegación en posts de comunidad
+4. Confirmar que URLs son consistentes
+
 ## [0.5.0] - 2024-12-21
 
 ### 🚀 Implementación Completa de Navegación a Posts Individuales

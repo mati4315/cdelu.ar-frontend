@@ -122,9 +122,26 @@ class FeedService {
     }
   }
 
-  // NUEVO: Elemento específico
+  // NUEVO: Elemento específico por original_id (ID del post original, no del feed)
+  async getPostByOriginalId(type: FeedType, originalId: number): Promise<FeedItem> {
+    console.log(`🔍 [FEED SERVICE] getPostByOriginalId called - type: ${type}, originalId: ${originalId}`);
+    
+    try {
+      // Usar la ruta específica para obtener por original_id
+      // Esto debería coincidir con las rutas que espera el backend
+      const endpoint = type === 1 ? `/news/${originalId}` : `/com/${originalId}`;
+      const response = await this.apiClient.get<FeedItem>(endpoint);
+      console.log('✅ [FEED SERVICE] getPostByOriginalId response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ [FEED SERVICE] Error in getPostByOriginalId:', error);
+      throw error;
+    }
+  }
+
+  // NUEVO: Elemento específico por feed ID (del feed unificado)
   async getFeedItem(type: FeedType, id: number): Promise<FeedItem> {
-    console.log(`🔍 [FEED SERVICE] getFeedItem called - type: ${type}, id: ${id}`);
+    console.log(`🔍 [FEED SERVICE] getFeedItem called - type: ${type}, feedId: ${id}`);
     
     try {
       const response = await this.apiClient.get<FeedItem>(`/feed/${type}/${id}`);
@@ -274,6 +291,7 @@ export const {
   getNews,
   getCommunity,
   getFeedStats,
+  getPostByOriginalId,
   getFeedItem,
   getNewsLegacy,
   getContentByTab,
