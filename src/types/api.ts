@@ -2,7 +2,7 @@ export interface User {
   id: number;
   nombre: string;
   email: string;
-  role: 'administrador' | 'colaborador' | 'usuario';
+  rol: 'administrador' | 'colaborador' | 'usuario';
   created_at?: string; // Asumiendo que las fechas son strings ISO
   updated_at?: string;
 }
@@ -16,7 +16,7 @@ export interface RegisterPayload {
   nombre: string;
   email: string;
   password: string;
-  role?: 'administrador' | 'colaborador' | 'usuario';
+  rol?: 'administrador' | 'colaborador' | 'usuario';
 }
 
 export interface News {
@@ -68,7 +68,7 @@ export interface CommentCreatePayload {
 export interface UserUpdatePayload {
   nombre?: string;
   email?: string;
-  role?: 'administrador' | 'colaborador' | 'usuario';
+  rol?: 'administrador' | 'colaborador' | 'usuario';
 }
 
 export interface Stats {

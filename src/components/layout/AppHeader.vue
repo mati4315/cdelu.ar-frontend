@@ -98,7 +98,7 @@
                     {{ authStore.user.nombre }}
                   </p>
                   <p class="text-xs text-gray-500 dark:text-gray-400 capitalize">
-                    {{ authStore.user.role }}
+                    {{ authStore.user.rol }}
                   </p>
                 </div>
 
