@@ -98,16 +98,34 @@
           tag="div" 
           class="feed-items"
         >
-          <FeedItem
-            v-for="item in currentContent"
-            :key="`${item.type}-${item.id}`"
-            :item="item"
-            :show-actions="true"
-            @item-click="handleItemClick"
-            @like="handleLike"
-            @comments="handleComments"
-            @share="handleShare"
-          />
+          <template v-for="(item, index) in currentContent" :key="`${item.type}-${item.id}`">
+            <!-- Contenido normal -->
+            <FeedItem
+              v-if="!item.is_ad"
+              :item="item"
+              :show-actions="true"
+              @item-click="handleItemClick"
+              @like="handleLike"
+              @comments="handleComments"
+              @share="handleShare"
+            />
+            
+            <!-- Anuncio -->
+            <FeedAdItem
+              v-else
+              :ad="item as unknown as Ad"
+              @impression="handleAdImpression"
+              @click="handleAdClick"
+            />
+            
+            <!-- Insertar anuncios cada 4-7 posts -->
+            <FeedAdItem
+              v-if="shouldInsertAd(index) && getRandomAd()"
+              :ad="getRandomAd()!"
+              @impression="handleAdImpression"
+              @click="handleAdClick"
+            />
+          </template>
         </TransitionGroup>
         
         <!-- Loading para infinite scroll -->
@@ -139,9 +157,12 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useFeedStore } from '@/store/feedStore';
+import { useAds } from '@/composables/useAds';
 import FeedTabs from './FeedTabs.vue';
 import FeedItem from './FeedItem.vue';
+import FeedAdItem from './FeedAdItem.vue';
 import type { FeedMainProps, FeedItem as FeedItemType, FeedTab } from '@/types/feed';
+import type { Ad } from '@/types/ads';
 
 interface Props extends FeedMainProps {}
 
@@ -164,6 +185,9 @@ const {
   pagination,
   isReadyForInfiniteScroll
 } = storeToRefs(feedStore);
+
+// Hook de publicidad
+const { activeAds, loadActiveAds, registerImpression, registerClick } = useAds();
 
 // Refs para infinite scroll
 const infiniteScrollTrigger = ref<HTMLElement | null>(null);
@@ -235,6 +259,46 @@ const handleShare = (item: FeedItemType) => {
     // Fallback: copiar al clipboard
     navigator.clipboard.writeText(window.location.href);
   }
+};
+
+// Métodos para manejar anuncios
+const handleAdImpression = async (ad: Ad) => {
+  console.log('👁️ [FEED MAIN] Ad impression:', ad.id);
+  await registerImpression(ad.id);
+};
+
+const handleAdClick = async (ad: Ad) => {
+  console.log('🖱️ [FEED MAIN] Ad click:', ad.id);
+  await registerClick(ad.id);
+};
+
+// Lógica para insertar anuncios
+const shouldInsertAd = (index: number): boolean => {
+  // Insertar anuncio cada 4-7 posts con 30% de probabilidad
+  const postsBetweenAds = 4 + Math.floor(Math.random() * 4); // 4-7
+  const probability = 0.3;
+  
+  return index > 0 && 
+         index % postsBetweenAds === 0 && 
+         Math.random() < probability &&
+         activeAds.value.length > 0;
+};
+
+const getRandomAd = (): Ad | null => {
+  if (activeAds.value.length === 0) return null;
+  
+  // Seleccionar anuncio aleatorio basado en prioridad
+  const totalPriority = activeAds.value.reduce((sum: number, ad: Ad) => sum + ad.prioridad, 0);
+  let random = Math.random() * totalPriority;
+  
+  for (const ad of activeAds.value) {
+    random -= ad.prioridad;
+    if (random <= 0) {
+      return ad;
+    }
+  }
+  
+  return activeAds.value[0]; // Fallback
 };
 
 // Infinite scroll setup
@@ -326,6 +390,9 @@ onMounted(async () => {
       feedStore.loadStats()
     ]);
   }
+  
+  // Cargar anuncios activos
+  await loadActiveAds();
   
   // Configurar infinite scroll después de la carga inicial
   if (props.enableInfiniteScroll) {

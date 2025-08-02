@@ -4,7 +4,7 @@
 /**
  * Tipo de contenido en el feed
  */
-export type FeedType = 1 | 2; // 1=noticias, 2=comunidad
+export type FeedType = 1 | 2 | 3; // 1=noticias, 2=comunidad, 3=anuncios
 
 /**
  * Pestañas disponibles en el feed
@@ -51,7 +51,7 @@ export interface FeedItem {
   /** URL de imagen asociada */
   image_url?: string;
   
-  /** Tipo de contenido: 1=noticia, 2=comunidad */
+  /** Tipo de contenido: 1=noticia, 2=comunidad, 3=anuncio */
   type: FeedType;
   
   /** ID original en la tabla source (news/com) */
@@ -82,6 +82,31 @@ export interface FeedItem {
   // Campos específicos de comunidad (type=2)
   /** URL de video (solo comunidad) */
   video_url?: string;
+  
+  // Campos específicos de anuncios (type=3)
+  /** Indica si es un anuncio */
+  is_ad?: boolean;
+  
+  /** URL de destino del anuncio */
+  enlace_destino?: string;
+  
+  /** Texto opcional del anuncio */
+  texto_opcional?: string;
+  
+  /** Categoría del anuncio */
+  categoria?: string;
+  
+  /** Prioridad del anuncio */
+  prioridad?: number;
+  
+  /** Impresiones máximas del anuncio */
+  impresiones_maximas?: number;
+  
+  /** Impresiones actuales del anuncio */
+  impresiones_actuales?: number;
+  
+  /** Contador de clics del anuncio */
+  clics_count?: number;
   
   // Estadísticas
   /** Número de likes */

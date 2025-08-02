@@ -85,7 +85,16 @@ async function handleLogin() {
   try {
     await authStore.login({ email: email.value, password: password.value });
     if (authStore.isAuthenticated) {
-      router.push('/');
+      // Obtener la ruta de redirección de los query params
+      const redirectPath = router.currentRoute.value.query.redirect as string;
+      
+      // Si hay una ruta de redirección y es válida, ir allí
+      if (redirectPath && redirectPath !== '/login') {
+        router.push(redirectPath);
+      } else {
+        // Si no hay redirección o es inválida, ir al home
+        router.push('/');
+      }
     }
   } catch (error) {}
 }

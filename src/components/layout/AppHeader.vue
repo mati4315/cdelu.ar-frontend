@@ -29,7 +29,7 @@
 
           <!-- Selector de tema -->
           <button 
-            @click="toggleDark()" 
+            @click="toggleTheme" 
             class="group relative p-2 rounded-lg transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
             aria-label="Cambiar tema"
           >
@@ -140,6 +140,14 @@
                     Configuración
                   </router-link>
 
+                  <router-link to="/publicidad" class="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" @click="closeUserMenu">
+                    <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.6A9 9 0 0 0 5.6 11a9 9 0 0 0 5.4 5.4 9 9 0 0 0 5.4-5.4A9 9 0 0 0 11 5.6z"></path>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2v2m0 14v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m14 0h2M6.34 6.34l-1.41 1.41m11.32-1.41l-1.41-1.41"></path>
+                    </svg>
+                    Publicidad
+                  </router-link>
+
                   <div class="border-t border-gray-200 dark:border-gray-700 my-2"></div>
 
                   <button 
@@ -184,8 +192,9 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
-import { useWindowScroll, useDark, useToggle, onClickOutside } from '@vueuse/core';
+import { useWindowScroll, onClickOutside } from '@vueuse/core';
 import { useAuthStore } from '@/store/auth';
+import { useThemeStore } from '@/store/theme';
 import { useRouter } from 'vue-router';
 
 const headerRef = ref<HTMLElement | null>(null);
@@ -196,11 +205,11 @@ const isUserMenuOpen = ref(false);
 let lastScrollY = 0;
 
 const authStore = useAuthStore();
+const themeStore = useThemeStore();
 const router = useRouter();
 
-// Lógica para el tema oscuro/claro
-const isDark = useDark(); // useDark se encarga de la clase en <html> y localStorage
-const toggleDark = useToggle(isDark);
+// Usar nuestro store de tema personalizado
+const { isDark, toggleTheme } = themeStore;
 
 function handleScroll() {
   const currentScrollY = window.scrollY;

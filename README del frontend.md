@@ -1,5 +1,22 @@
 # 📰 CdelU - Portal de Noticias API
 
+# Desarrollo con hot reload
+npm run dev
+
+# Producción
+npm start
+
+# Tests
+npm test
+
+# Importar noticias desde RSS
+npm run import-news
+
+# Eliminar todas las noticias
+npm run delete-news
+```
+
+
 API REST para el diario online CdelU con autenticación JWT, gestión de contenido multimedia y documentación interactiva.
 
 ## 🚀 Características
@@ -216,21 +233,7 @@ curl -X POST http://localhost:3001/api/v1/com \
 ## 🚀 Scripts Disponibles
 
 ```bash
-# Desarrollo con hot reload
-npm run dev
 
-# Producción
-npm start
-
-# Tests
-npm test
-
-# Importar noticias desde RSS
-npm run import-news
-
-# Eliminar todas las noticias
-npm run delete-news
-```
 
 ## 🔧 Configuración CORS
 
