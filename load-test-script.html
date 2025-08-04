@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎰 Test - Anuncios de Lotería</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #f59e0b;
+            font-size: 2rem;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+        }
+        .test-section h3 {
+            color: #374151;
+            margin-bottom: 15px;
+        }
+        .button {
+            background: linear-gradient(135deg, #f59e0b, #ea580c);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            margin: 5px;
+            transition: all 0.2s;
+        }
+        .button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+        }
+        .info {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .console {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        .status.success {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #16a34a;
+        }
+        .status.error {
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #ef4444;
+        }
+        .status.warning {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎰 Test - Anuncios de Lotería</h1>
+            <p>Sistema de anuncios dinámicos de lotería</p>
+        </div>
+
+        <div class="info">
+            <strong>📋 Información:</strong>
+            <ul>
+                <li>Este script prueba la funcionalidad de anuncios de lotería</li>
+                <li>Requiere estar autenticado en la aplicación</li>
+                <li>Verifica la conexión con el backend</li>
+                <li>Permite crear anuncios de lotería especiales</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 Funciones de Prueba</h3>
+            <button class="button" onclick="checkBackendStructure()">🔍 Verificar Backend</button>
+            <button class="button" onclick="createBasicLotteryAd()">🎰 Crear Anuncio Lotería</button>
+            <button class="button" onclick="testLotteryAdDetection()">🧪 Probar Detección</button>
+            <button class="button" onclick="simulateLotteryAd()">🎲 Simular Anuncio</button>
+            <button class="button" onclick="showSystemInfo()">📋 Mostrar Info</button>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Estado del Sistema</h3>
+            <div id="status-container">
+                <div class="status warning">
+                    ⏳ Esperando verificación del sistema...
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>📝 Consola de Logs</h3>
+            <div id="console-output" class="console">
+                Sistema de prueba cargado...
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔗 Enlaces Útiles</h3>
+            <p>
+                <a href="http://localhost:5173/publicidad" target="_blank">📊 Dashboard de Publicidad</a> |
+                <a href="http://localhost:5173/" target="_blank">🏠 Feed Principal</a> |
+                <a href="http://localhost:3001/api/v1/lotteries" target="_blank">🎰 API Loterías</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Interceptar console.log para mostrar en la página
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+
+        function addToConsole(message, type = 'log') {
+            const consoleOutput = document.getElementById('console-output');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'color: #ef4444' : type === 'warn' ? 'color: #f59e0b' : 'color: #10b981';
+            
+            consoleOutput.innerHTML += `<div style="${className}">[${timestamp}] ${message}</div>`;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addToConsole(args.join(' '), 'log');
+        };
+
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addToConsole(args.join(' '), 'error');
+        };
+
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            addToConsole(args.join(' '), 'warn');
+        };
+
+        // Función para actualizar el estado
+        function updateStatus(message, type = 'warning') {
+            const statusContainer = document.getElementById('status-container');
+            statusContainer.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        // Verificar estado inicial
+        async function checkInitialState() {
+            try {
+                updateStatus('🔍 Verificando estado inicial...', 'warning');
+                
+                // Verificar si hay token
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    updateStatus('❌ No hay token de autenticación. Por favor, inicia sesión en la aplicación.', 'error');
+                    return;
+                }
+
+                // Verificar backend
+                const response = await fetch('http://localhost:3001/api/v1/lotteries');
+                if (response.ok) {
+                    updateStatus('✅ Sistema listo. Backend conectado y autenticado.', 'success');
+                } else {
+                    updateStatus('⚠️ Backend no disponible. Verifica que esté corriendo en puerto 3001.', 'warning');
+                }
+            } catch (error) {
+                updateStatus('❌ Error verificando estado: ' + error.message, 'error');
+            }
+        }
+
+        // Cargar script de prueba
+        async function loadTestScript() {
+            try {
+                const response = await fetch('./test-lottery-ad-simple.js');
+                const scriptContent = await response.text();
+                
+                // Crear y ejecutar el script
+                const script = document.createElement('script');
+                script.textContent = scriptContent;
+                document.head.appendChild(script);
+                
+                console.log('✅ Script de prueba cargado exitosamente');
+                checkInitialState();
+            } catch (error) {
+                console.error('❌ Error cargando script de prueba:', error);
+                updateStatus('❌ Error cargando script de prueba', 'error');
+            }
+        }
+
+        // Cargar script al iniciar
+        loadTestScript();
+    </script>
+</body>
+</html> 

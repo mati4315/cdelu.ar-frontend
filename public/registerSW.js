@@ -73,14 +73,16 @@ function updateApp() {
 }
 
 // Manejar instalación de PWA
-let deferredPrompt;
+if (!window.deferredPrompt) {
+  window.deferredPrompt = null;
+}
 
 window.addEventListener('beforeinstallprompt', (e) => {
   // Prevenir que Chrome muestre automáticamente el prompt
   e.preventDefault();
   
   // Guardar el evento para usarlo después
-  deferredPrompt = e;
+  window.deferredPrompt = e;
   
   // Mostrar botón de instalación personalizado
   showInstallButton();
@@ -114,13 +116,13 @@ function showInstallButton() {
   `;
   
   installButton.addEventListener('click', () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      deferredPrompt.userChoice.then((choiceResult) => {
+    if (window.deferredPrompt) {
+      window.deferredPrompt.prompt();
+      window.deferredPrompt.userChoice.then((choiceResult) => {
         if (choiceResult.outcome === 'accepted') {
           console.log('Usuario aceptó instalar la PWA');
         }
-        deferredPrompt = null;
+        window.deferredPrompt = null;
         installButton.remove();
       });
     }

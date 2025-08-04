@@ -1,6 +1,11 @@
-// Este archivo es actualmente un marcador de posición.
-// La configuración principal de Pinia ya está en src/main.ts (createPinia())
-// Puedes usar este archivo para exportar todos tus stores si lo deseas,
-// o para configuraciones globales de Pinia si fueran necesarias más adelante.
+// Exportar todos los stores para facilitar las importaciones
+export { useAuthStore } from './auth'
+export { useNewsStore } from './news'
+export { useFeedStore } from './feedStore'
+export { useLotteryStore } from './lottery'
+export { useSurveyStore } from './survey'
 
-export {}; // Para asegurar que es tratado como un módulo 
+// Configuración global de Pinia si fuera necesaria
+export const storeConfig = {
+  // Configuraciones globales aquí si las hubiera
+} 

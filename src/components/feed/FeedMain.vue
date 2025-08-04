@@ -38,6 +38,11 @@
       </div>
     </div>
     
+    <!-- Encuestas Activas -->
+    <div class="container mx-auto px-4 py-4">
+      <HomeActiveSurveys />
+    </div>
+    
     <!-- Pestañas -->
     <FeedTabs 
       :current-tab="currentTab"
@@ -119,8 +124,14 @@
             />
             
             <!-- Insertar anuncios cada 4-7 posts -->
+            <FeedLotteryAdItem
+              v-if="shouldInsertAd(index) && getRandomAd() && isLotteryAd(getRandomAd()!)"
+              :ad="getRandomAd()!"
+              @impression="handleAdImpression"
+              @click="handleAdClick"
+            />
             <FeedAdItem
-              v-if="shouldInsertAd(index) && getRandomAd()"
+              v-else-if="shouldInsertAd(index) && getRandomAd()"
               :ad="getRandomAd()!"
               @impression="handleAdImpression"
               @click="handleAdClick"
@@ -157,10 +168,12 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useFeedStore } from '@/store/feedStore';
-import { useAds } from '@/composables/useAds';
+import { useAds, useAdsWithLottery } from '@/composables/useAds';
 import FeedTabs from './FeedTabs.vue';
 import FeedItem from './FeedItem.vue';
 import FeedAdItem from './FeedAdItem.vue';
+import FeedLotteryAdItem from './FeedLotteryAdItem.vue';
+import HomeActiveSurveys from '../survey/HomeActiveSurveys.vue';
 import type { FeedMainProps, FeedItem as FeedItemType, FeedTab } from '@/types/feed';
 import type { Ad } from '@/types/ads';
 
@@ -186,8 +199,16 @@ const {
   isReadyForInfiniteScroll
 } = storeToRefs(feedStore);
 
-// Hook de publicidad
-const { activeAds, loadActiveAds, registerImpression, registerClick } = useAds();
+// Hook de publicidad con lotería
+const { 
+  activeAds, 
+  loadActiveAds, 
+  registerImpression, 
+  registerClick,
+  adsWithLottery,
+  isLotteryAd,
+  initializeAdsWithLottery
+} = useAdsWithLottery();
 
 // Refs para infinite scroll
 const infiniteScrollTrigger = ref<HTMLElement | null>(null);
@@ -272,7 +293,7 @@ const handleAdClick = async (ad: Ad) => {
   await registerClick(ad.id);
 };
 
-// Lógica para insertar anuncios
+// Lógica para insertar anuncios con lotería
 const shouldInsertAd = (index: number): boolean => {
   // Insertar anuncio cada 4-7 posts con 30% de probabilidad
   const postsBetweenAds = 4 + Math.floor(Math.random() * 4); // 4-7
@@ -281,24 +302,29 @@ const shouldInsertAd = (index: number): boolean => {
   return index > 0 && 
          index % postsBetweenAds === 0 && 
          Math.random() < probability &&
-         activeAds.value.length > 0;
+         adsWithLottery.value.length > 0;
 };
 
 const getRandomAd = (): Ad | null => {
-  if (activeAds.value.length === 0) return null;
+  if (adsWithLottery.value.length === 0) return null;
   
-  // Seleccionar anuncio aleatorio basado en prioridad
-  const totalPriority = activeAds.value.reduce((sum: number, ad: Ad) => sum + ad.prioridad, 0);
-  let random = Math.random() * totalPriority;
+  // Priorizar anuncios de lotería (prioridad 3)
+  const lotteryAds = adsWithLottery.value.filter(ad => ad.prioridad === 3);
+  const regularAds = adsWithLottery.value.filter(ad => ad.prioridad !== 3);
   
-  for (const ad of activeAds.value) {
-    random -= ad.prioridad;
-    if (random <= 0) {
-      return ad;
-    }
+  // 70% de probabilidad de mostrar anuncio de lotería si existe
+  if (lotteryAds.length > 0 && Math.random() < 0.7) {
+    const adIndex = Math.floor(Math.random() * lotteryAds.length);
+    return lotteryAds[adIndex] || null;
   }
   
-  return activeAds.value[0]; // Fallback
+  // Si no hay anuncios de lotería o no se seleccionó, usar anuncios regulares
+  if (regularAds.length > 0) {
+    const adIndex = Math.floor(Math.random() * regularAds.length);
+    return regularAds[adIndex] || null;
+  }
+  
+  return null;
 };
 
 // Infinite scroll setup
@@ -391,8 +417,8 @@ onMounted(async () => {
     ]);
   }
   
-  // Cargar anuncios activos
-  await loadActiveAds();
+  // Cargar anuncios con lotería
+  await initializeAdsWithLottery();
   
   // Configurar infinite scroll después de la carga inicial
   if (props.enableInfiniteScroll) {

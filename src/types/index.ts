@@ -20,4 +20,7 @@ export interface UploadProgressEvent {
 
 export type OnUploadProgressCallback = (progressEvent: UploadProgressEvent) => void;
 
+// Re-exportar tipos de encuestas para uso global
+export * from './survey';
+
 // Puedes añadir más tipos globales aquí según sea necesario. 

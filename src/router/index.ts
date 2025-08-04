@@ -6,6 +6,12 @@ import RegisterView from '@/views/RegisterView.vue';
 import CreateComView from '@/views/com/CreateComView.vue';
 import FeedItemDetailView from '@/views/FeedItemDetailView.vue';
 import AdsDashboardView from '@/views/AdsDashboardView.vue';
+import LotteryView from '@/views/LotteryView.vue';
+import LotteryAdminView from '@/views/LotteryAdminView.vue';
+import LotteryDetailView from '@/views/LotteryDetailView.vue';
+import SurveyView from '@/views/SurveyView.vue';
+import SurveyAdminView from '@/views/SurveyAdminView.vue';
+import AdminLogin from '@/components/survey/AdminLogin.vue';
 // Importa otras vistas según sea necesario, por ejemplo, LoginView, RegisterView
 
 const routes: Array<RouteRecordRaw> = [
@@ -54,6 +60,39 @@ const routes: Array<RouteRecordRaw> = [
     component: AdsDashboardView,
     meta: { requiresAuth: true }
   },
+  {
+    path: '/lotteries',
+    name: 'Lottery',
+    component: LotteryView,
+  },
+  {
+    path: '/lotteries/:id',
+    name: 'LotteryDetail',
+    component: LotteryDetailView,
+    props: true,
+  },
+  {
+    path: '/lotteries/admin',
+    name: 'LotteryAdmin',
+    component: LotteryAdminView,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/surveys',
+    name: 'Surveys',
+    component: SurveyView,
+  },
+  {
+    path: '/surveys/admin',
+    name: 'SurveyAdmin',
+    component: SurveyAdminView,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/surveys/admin/login',
+    name: 'SurveyAdminLogin',
+    component: AdminLogin,
+  },
   // Agrega aquí más rutas según tu documentación (Dashboard, Profile, etc.)
 ];
 
@@ -87,6 +126,26 @@ router.beforeEach((to, from, next) => {
       query: { redirect: to.fullPath }
     });
     return;
+  }
+  
+  // Si la ruta requiere admin y el usuario no es admin
+  if (to.meta.requiresAdmin && isAuthenticated) {
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        if (user.rol !== 'administrador') {
+          next({ name: 'Home' });
+          return;
+        }
+      } else {
+        next({ name: 'Home' });
+        return;
+      }
+    } catch (error) {
+      next({ name: 'Home' });
+      return;
+    }
   }
   
   // Si el usuario está autenticado y va al login, redirigir al home

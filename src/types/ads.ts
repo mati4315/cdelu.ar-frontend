@@ -1,6 +1,9 @@
 // 🔧 Tipos TypeScript para el Sistema de Publicidad
 // Archivo: src/types/ads.ts
 
+import type { Ref } from 'vue';
+import type { FeedItem } from '@/types/feed';
+
 /**
  * Tipo de anuncio
  */
@@ -46,6 +49,56 @@ export interface Ad {
   
   /** Fecha de última actualización */
   updated_at: string;
+  
+  /** Tipo especial de anuncio */
+  tipo_especial?: 'lottery_dynamic';
+  
+  /** Datos específicos para anuncios especiales */
+  datos_especiales?: LotteryAdData;
+}
+
+/**
+ * Datos específicos para anuncios de lotería dinámica
+ */
+export interface LotteryAdData {
+  /** ID de la lotería seleccionada */
+  lottery_id?: number;
+  
+  /** Título de la lotería */
+  lottery_title?: string;
+  
+  /** Descripción de la lotería */
+  lottery_description?: string;
+  
+  /** Imagen de la lotería */
+  lottery_image?: string;
+  
+  /** Si la lotería es gratuita */
+  is_free?: boolean;
+  
+  /** Precio del ticket */
+  ticket_price?: number;
+  
+  /** Tickets vendidos */
+  tickets_sold?: number;
+  
+  /** Máximo de tickets */
+  max_tickets?: number;
+  
+  /** Número de ganadores */
+  num_winners?: number;
+  
+  /** Fecha de fin */
+  end_date?: string;
+  
+  /** Estado de la lotería */
+  status?: string;
+  
+  /** Si el usuario actual participó */
+  user_participated?: boolean;
+  
+  /** Números de ticket del usuario */
+  user_ticket_numbers?: number[];
 }
 
 /**

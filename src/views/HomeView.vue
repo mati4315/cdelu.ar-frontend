@@ -1,6 +1,7 @@
 <template>
   <div class="home-view relative min-h-screen pb-16 pt-20">
     <FeedMain />
+    
     <router-link
       to="/comunicaciones/crear"
       class="fixed bottom-6 right-6 bg-blue-500 hover:bg-blue-700 text-white font-bold p-4 rounded-full shadow-lg transition-transform duration-300 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 z-40"

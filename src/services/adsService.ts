@@ -8,8 +8,10 @@ import type {
   AdsResponse, 
   ActiveAdsResponse, 
   AdsStatsResponse,
-  AdForm 
+  AdForm,
+  LotteryAdData
 } from '@/types/ads';
+import type { Lottery } from '@/types/lottery';
 
 /**
  * Configuración del servicio de publicidad
@@ -114,6 +116,77 @@ export const adsService = {
   async getFeedWithAds(params?: { page?: number; limit?: number; includeAds?: boolean }) {
     const response = await adsApi.get('/api/v1/feed', { params });
     return response.data;
+  },
+
+  /**
+   * Generar anuncio dinámico de lotería
+   */
+  async generateLotteryAd(activeLotteries: Lottery[], userTickets?: any[]): Promise<Ad | null> {
+    if (!activeLotteries || activeLotteries.length === 0) {
+      return null;
+    }
+
+    // Seleccionar lotería aleatoria
+    const randomIndex = Math.floor(Math.random() * activeLotteries.length);
+    const selectedLottery = activeLotteries[randomIndex];
+
+    // Verificar si el usuario participó
+    const userParticipated = userTickets?.some(ticket => ticket.lottery_id === selectedLottery.id) || false;
+    const userTicketNumbers = userTickets
+      ?.filter(ticket => ticket.lottery_id === selectedLottery.id)
+      .map(ticket => ticket.ticket_number) || [];
+
+    // Crear datos del anuncio dinámico
+    const lotteryData: LotteryAdData = {
+      lottery_id: selectedLottery.id,
+      lottery_title: selectedLottery.title,
+      lottery_description: selectedLottery.description,
+      lottery_image: selectedLottery.image_url,
+      is_free: selectedLottery.is_free,
+      ticket_price: selectedLottery.ticket_price,
+      tickets_sold: selectedLottery.tickets_sold || 0,
+      max_tickets: selectedLottery.max_tickets,
+      num_winners: selectedLottery.num_winners,
+      end_date: selectedLottery.end_date,
+      status: selectedLottery.status,
+      user_participated: userParticipated,
+      user_ticket_numbers: userTicketNumbers
+    };
+
+    // Crear anuncio dinámico
+    const dynamicAd: Ad = {
+      id: -1, // ID temporal para anuncios dinámicos
+      titulo: `🎰 ${selectedLottery.title}`,
+      descripcion: selectedLottery.description || '¡Participa en nuestra lotería y gana premios increíbles!',
+      image_url: selectedLottery.image_url,
+      enlace_destino: `/lotteries/${selectedLottery.id}`,
+      texto_opcional: userParticipated 
+        ? `Ya participaste con los números: ${userTicketNumbers.join(', ')}`
+        : selectedLottery.is_free 
+          ? '¡Participación gratuita!' 
+          : `Precio: $${selectedLottery.ticket_price}`,
+      categoria: 'eventos',
+      prioridad: 3, // Prioridad especial para anuncios de lotería
+      activo: true,
+      impresiones_maximas: 0, // Sin límite para anuncios dinámicos
+      impresiones_actuales: 0,
+      clics_count: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      tipo_especial: 'lottery_dynamic',
+      datos_especiales: lotteryData
+    };
+
+    return dynamicAd;
+  },
+
+  /**
+   * Verificar si un anuncio es de lotería dinámica
+   */
+  isLotteryAd(ad: Ad): boolean {
+    return ad.titulo.includes('🎰') || 
+           ad.titulo.includes('Lotería') || 
+           ad.categoria === 'eventos' && ad.prioridad === 3;
   }
 };
 
