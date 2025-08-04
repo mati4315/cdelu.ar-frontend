@@ -107,25 +107,6 @@ async function eliminarNoticia(id: number | string): Promise<void> {
   }
 }
 
-// Likes
-async function darLike(noticiaId: number | string): Promise<{ message: string }> {
-  try {
-    const response = await apiClient.post<{ message: string }>(`/news/${noticiaId}/like`);
-    return response.data;
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
-
-async function quitarLike(noticiaId: number | string): Promise<{ message: string }> {
-  try {
-    const response = await apiClient.delete<{ message: string }>(`/news/${noticiaId}/like`);
-    return response.data;
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
-
 // Comentarios
 async function getComentarios(noticiaId: number | string): Promise<Comment[]> {
   try {
@@ -213,8 +194,6 @@ export const apiService = {
   crearNoticia,
   actualizarNoticia,
   eliminarNoticia,
-  darLike,
-  quitarLike,
   getComentarios,
   crearComentario,
   getUsuarios,

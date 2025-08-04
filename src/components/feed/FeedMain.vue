@@ -97,12 +97,11 @@
         </div>
         
         <!-- Items del feed -->
-        <TransitionGroup 
+        <div 
           v-else
-          name="feed-item" 
-          tag="div" 
           class="feed-items"
         >
+<<<<<<< HEAD
           <template v-for="(item, index) in currentContent" :key="`${item.type}-${item.id}`">
             <!-- Contenido normal -->
             <FeedItem
@@ -138,6 +137,19 @@
             />
           </template>
         </TransitionGroup>
+=======
+          <FeedItem
+            v-for="item in currentContent"
+            :key="`${item.type}-${item.id}`"
+            :item="item"
+            :show-actions="true"
+            @item-click="handleItemClick"
+            @like="handleLike"
+            @comments="handleComments"
+            @share="handleShare"
+          />
+        </div>
+>>>>>>> 20577a1183f8832f97cb7c1847d49f3a457e4c0a
         
         <!-- Loading para infinite scroll -->
         <div v-if="isInfiniteLoading" class="infinite-loading">
@@ -166,6 +178,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useFeedStore } from '@/store/feedStore';
 import { useAds, useAdsWithLottery } from '@/composables/useAds';
@@ -185,6 +198,10 @@ const props = withDefaults(defineProps<Props>(), {
   showStats: true,
   enableInfiniteScroll: true
 });
+
+// Router y Route
+const router = useRouter();
+const route = useRoute();
 
 // Store y refs reactivos
 const feedStore = useFeedStore();
@@ -214,6 +231,15 @@ const {
 const infiniteScrollTrigger = ref<HTMLElement | null>(null);
 const intersectionObserver = ref<IntersectionObserver | null>(null);
 
+// Refs para manejo de scroll por pestaña
+const scrollPositions = ref<Record<FeedTab, number>>({
+  todo: 0,
+  noticias: 0,
+  comunidad: 0
+});
+const isRestoringScroll = ref(false);
+const scrollSaveTimeout = ref<number | null>(null);
+
 // Computed
 const getTabLabel = (tab: FeedTab): string => {
   const labels = {
@@ -229,10 +255,66 @@ const currentPagination = computed(() => {
   return pagination.value[currentTab.value];
 });
 
+// Función para obtener pestaña desde URL
+const getTabFromUrl = (): FeedTab => {
+  const urlTab = route.query.tab as string;
+  console.log(`🔗 [FEED MAIN] Tab desde URL: ${urlTab}`);
+  
+  // Validar que la pestaña sea válida
+  if (urlTab && ['todo', 'noticias', 'comunidad'].includes(urlTab)) {
+    return urlTab as FeedTab;
+  }
+  
+  // Por defecto, usar la pestaña inicial
+  return props.initialTab;
+};
+
 // Event handlers
 const handleTabChange = async (tab: FeedTab) => {
   console.log(`🔄 [FEED MAIN] Tab change requested: ${tab}`);
+  
+  // Guardar posición de scroll de la pestaña actual antes de cambiar
+  saveScrollPosition();
+  
+  // Actualizar URL con query parameter
+  try {
+    await router.push({
+      path: route.path,
+      query: {
+        ...route.query,
+        tab: tab
+      }
+    });
+    console.log(`🔗 [FEED MAIN] URL actualizada con tab=${tab}`);
+  } catch (error) {
+    console.warn('⚠️ [FEED MAIN] Error al actualizar URL:', error);
+  }
+  
+  // Cambiar pestaña en el store
   await feedStore.switchTab(tab);
+  
+  // Restaurar posición de scroll para la nueva pestaña
+  restoreScrollPosition(tab);
+};
+
+// Función para sincronizar pestaña desde URL
+const syncTabFromUrl = async () => {
+  const urlTab = getTabFromUrl();
+  
+  // Solo cambiar si es diferente de la pestaña actual
+  if (urlTab !== currentTab.value) {
+    console.log(`🔄 [FEED MAIN] Sincronizando pestaña desde URL: ${currentTab.value} -> ${urlTab}`);
+    
+    // Guardar posición actual antes de cambiar (si no estamos en carga inicial)
+    if (currentTab.value) {
+      saveScrollPosition();
+    }
+    
+    await feedStore.switchTab(urlTab);
+    
+    // Restaurar posición para la nueva pestaña
+    restoreScrollPosition(urlTab);
+  }
 };
 
 const handleRefresh = async () => {
@@ -253,7 +335,8 @@ const handleItemClick = (item: FeedItemType) => {
 
 const handleLike = (item: FeedItemType) => {
   console.log('❤️ [FEED MAIN] Like clicked:', item);
-  feedStore.toggleLike(item);
+  // Ya no necesitamos llamar toggleLike aquí porque FeedItem ya lo hace
+  // El evento 'like' se emite DESPUÉS de que el like se procesa exitosamente
 };
 
 const handleComments = (item: FeedItemType) => {
@@ -402,33 +485,151 @@ watch(
   }
 );
 
+// Watcher para detectar cambios en query parameters de la URL
+watch(
+  () => route.query.tab,
+  async (newTab) => {
+    console.log(`🔗 [FEED MAIN] Query parameter 'tab' cambió a: ${newTab}`);
+    await syncTabFromUrl();
+  }
+);
+
+// Watcher para detectar cambios en la ruta completa (útil para navegación hacia atrás)
+watch(
+  () => route.fullPath,
+  async (newPath, oldPath) => {
+    // Solo actuar si estamos en la página principal y venimos de otra página
+    if (route.name === 'Home' && oldPath && oldPath !== newPath) {
+      console.log(`🔙 [FEED MAIN] Navegación detectada - de: ${oldPath} a: ${newPath}`);
+      await syncTabFromUrl();
+    }
+  }
+);
+
+// Funciones para manejo de scroll
+const saveScrollPosition = () => {
+  const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+  scrollPositions.value[currentTab.value] = scrollTop;
+  
+  // Debounce para sessionStorage
+  if (scrollSaveTimeout.value) {
+    clearTimeout(scrollSaveTimeout.value);
+  }
+  
+  scrollSaveTimeout.value = setTimeout(() => {
+    try {
+      const storageKey = `feedScrollPositions`;
+      sessionStorage.setItem(storageKey, JSON.stringify(scrollPositions.value));
+      console.log(`💾 [SCROLL] Guardada posición para ${currentTab.value}: ${scrollTop}px (persistida en sessionStorage)`);
+    } catch (error) {
+      console.log(`💾 [SCROLL] Guardada posición para ${currentTab.value}: ${scrollTop}px (solo en memoria)`);
+    }
+  }, 300) as unknown as number; // Debounce de 300ms
+};
+
+const restoreScrollPosition = (tab: FeedTab) => {
+  const savedPosition = scrollPositions.value[tab];
+  
+  if (savedPosition > 0) {
+    isRestoringScroll.value = true;
+    console.log(`📜 [SCROLL] Restaurando posición para ${tab}: ${savedPosition}px`);
+    
+    // Scroll instantáneo sin delay
+    window.scrollTo({
+      top: savedPosition,
+      behavior: 'auto' // Sin animación para restauración
+    });
+    
+    // Resetear flag inmediatamente
+    isRestoringScroll.value = false;
+  } else {
+    console.log(`📜 [SCROLL] No hay posición guardada para ${tab}, mantener posición actual`);
+  }
+};
+
+const loadScrollPositions = () => {
+  try {
+    const storageKey = `feedScrollPositions`;
+    const saved = sessionStorage.getItem(storageKey);
+    if (saved) {
+      const parsedPositions = JSON.parse(saved);
+      scrollPositions.value = { ...scrollPositions.value, ...parsedPositions };
+      console.log(`📂 [SCROLL] Posiciones cargadas desde sessionStorage:`, parsedPositions);
+    }
+  } catch (error) {
+    console.log(`📂 [SCROLL] No se pudieron cargar posiciones desde sessionStorage`);
+  }
+};
+
 // Lifecycle
 onMounted(async () => {
   console.log('🚀 [FEED MAIN] Component mounted');
   
-  // Establecer pestaña inicial si es diferente
-  if (props.initialTab && props.initialTab !== currentTab.value) {
-    await feedStore.switchTab(props.initialTab);
-  } else {
-    // Cargar contenido inicial y estadísticas
-    await Promise.all([
-      feedStore.loadFeed(currentTab.value, true),
-      feedStore.loadStats()
-    ]);
+  // Cargar posiciones de scroll guardadas
+  loadScrollPositions();
+  
+  // Primero sincronizar con URL
+  await syncTabFromUrl();
+  
+  // Si no hay pestaña en URL, establecer la inicial y actualizar URL
+  if (!route.query.tab) {
+    console.log(`🔗 [FEED MAIN] No hay tab en URL, estableciendo inicial: ${props.initialTab}`);
+    try {
+      await router.replace({
+        path: route.path,
+        query: {
+          ...route.query,
+          tab: props.initialTab
+        }
+      });
+    } catch (error) {
+      console.warn('⚠️ [FEED MAIN] Error al establecer tab inicial en URL:', error);
+    }
   }
   
+<<<<<<< HEAD
   // Cargar anuncios con lotería
   await initializeAdsWithLottery();
+=======
+  // Cargar contenido y estadísticas
+  await Promise.all([
+    feedStore.loadFeed(currentTab.value, true),
+    feedStore.loadStats()
+  ]);
+>>>>>>> 20577a1183f8832f97cb7c1847d49f3a457e4c0a
   
   // Configurar infinite scroll después de la carga inicial
   if (props.enableInfiniteScroll) {
     setTimeout(setupInfiniteScroll, 100);
   }
-});
-
-onUnmounted(() => {
-  console.log('🧹 [FEED MAIN] Component unmounting');
-  destroyInfiniteScroll();
+  
+  // Añadir listener para guardar scroll antes de que el usuario navegue fuera
+  const handleBeforeUnload = () => {
+    saveScrollPosition();
+  };
+  
+  // Listener para guardar scroll mientras navega
+  const handleScroll = () => {
+    if (!isRestoringScroll.value) {
+      saveScrollPosition();
+    }
+  };
+  
+  window.addEventListener('beforeunload', handleBeforeUnload);
+  window.addEventListener('scroll', handleScroll, { passive: true });
+  
+  // Cleanup en unmount
+  onUnmounted(() => {
+    console.log('🧹 [FEED MAIN] Component unmounting');
+    destroyInfiniteScroll();
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.removeEventListener('scroll', handleScroll);
+    
+    // Limpiar timeout si existe
+    if (scrollSaveTimeout.value) {
+      clearTimeout(scrollSaveTimeout.value);
+    }
+  });
 });
 </script>
 
@@ -725,30 +926,18 @@ onUnmounted(() => {
   background: transparent;
 }
 
-/* Transiciones */
-.feed-item-enter-active,
-.feed-item-leave-active {
-  transition: all 0.5s ease;
-}
-
-.feed-item-enter-from {
-  opacity: 0;
-  transform: translateY(30px);
-}
-
-.feed-item-leave-to {
-  opacity: 0;
-  transform: translateX(-100%);
-}
-
-.feed-item-move {
-  transition: transform 0.5s ease;
-}
+/* Transiciones eliminadas para mayor velocidad de cambio entre pestañas */
 
 /* Responsive */
 @media (max-width: 768px) {
   .feed-main {
-    padding: 16px;
+    padding: 8px; /* Reducido significativamente para más espacio */
+    max-width: 100%; /* Asegurar que use todo el ancho disponible */
+  }
+  
+  .feed-content {
+    margin: 0 -4px; /* Expandir ligeramente más allá del padding del contenedor */
+    border-radius: 8px; /* Bordes más pequeños */
   }
   
   .stats-container {
@@ -761,7 +950,22 @@ onUnmounted(() => {
   }
   
   .feed-items {
-    padding: 16px;
+    padding: 1px; /* Padding mínimo para que los items ocupen casi todo el ancho */
+  }
+}
+
+@media (max-width: 480px) {
+  .feed-main {
+    padding: 1px; /* Padding mínimo en pantallas muy pequeñas */
+  }
+  
+  .feed-content {
+    margin: 0 -2px; /* Expandir aún más en pantallas pequeñas */
+    border-radius: 4px;
+  }
+  
+  .feed-items {
+    padding: 2px; /* Padding absolutamente mínimo */
   }
 }
 

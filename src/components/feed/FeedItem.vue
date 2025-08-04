@@ -86,7 +86,13 @@
     <!-- Footer con estadísticas y acciones -->
     <footer class="feed-item-footer" v-if="showActions">
       <div class="item-stats">
-        <span class="stat likes" :class="{ active: isLiked }">
+        <span 
+          class="stat likes" 
+          :class="{ active: isLiked }"
+          @click="handleLike"
+          :title="isLiked ? 'Quitar me gusta' : 'Me gusta'"
+          style="cursor: pointer;"
+        >
           <span class="stat-icon">❤️</span>
           <span class="stat-count">{{ formatNumber(item.likes_count) }}</span>
         </span>
@@ -142,6 +148,7 @@ import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import type { FeedItemProps, FeedItemEmits } from '@/types/feed';
 import { useFeedStore } from '@/store/feedStore';
+import { useAuth } from '@/composables/useAuth';
 
 interface Props extends FeedItemProps {}
 
@@ -156,14 +163,16 @@ const emit = defineEmits<FeedItemEmits>();
 // Store y Router
 const feedStore = useFeedStore();
 const router = useRouter();
+const { debugAuth, isAuthenticated } = useAuth();
 
 // Estado local
-const isLiked = ref(false); // Estado local simple, se actualiza con las respuestas del servidor
 const imageError = ref(false);
 const isLikeLoading = ref(false);
 const isExpanded = ref(false);
 
-// Computed properties
+// Computed properties - usar el estado del servidor
+const isLiked = computed(() => props.item.is_liked || false);
+
 const typeLabel = computed(() => {
   return props.item.type === 1 ? 'Noticia' : 'Comunidad';
 });
@@ -290,12 +299,15 @@ const formatDate = (dateString: string): string => {
 };
 
 const formatNumber = (num: number): string => {
-  if (num >= 1000000) {
-    return `${(num / 1000000).toFixed(1)}M`;
-  } else if (num >= 1000) {
-    return `${(num / 1000).toFixed(1)}k`;
+  // Validar entrada y convertir a número seguro
+  const safeNum = typeof num === 'number' && !isNaN(num) ? num : 0;
+  
+  if (safeNum >= 1000000) {
+    return `${(safeNum / 1000000).toFixed(1)}M`;
+  } else if (safeNum >= 1000) {
+    return `${(safeNum / 1000).toFixed(1)}k`;
   }
-  return num.toString();
+  return safeNum.toString();
 };
 
 // Event handlers
@@ -303,15 +315,26 @@ const handleItemClick = () => {
   // Navegar a la página de detalle según el tipo
   // IMPORTANTE: Usar original_id en lugar de id para la navegación
   // item.id es del feed unificado, item.original_id es del post real
+  
+  // Obtener la pestaña actual de la URL para preservarla
+  const currentRoute = router.currentRoute.value;
+  const currentTab = currentRoute.query.tab;
+  
   if (props.item.type === 1) {
     // Para noticias, usar la ruta existente
-    router.push(`/noticia/${props.item.original_id}`);
+    router.push({
+      path: `/noticia/${props.item.original_id}`,
+      query: currentTab ? { from_tab: currentTab } : {}
+    });
   } else {
     // Para comunidad, usar la nueva ruta  
-    router.push(`/comunidad/${props.item.original_id}`);
+    router.push({
+      path: `/comunidad/${props.item.original_id}`,
+      query: currentTab ? { from_tab: currentTab } : {}
+    });
   }
   
-  console.log(`🔗 [NAVIGATION] Navegando a post - tipo: ${props.item.type}, original_id: ${props.item.original_id}, feed_id: ${props.item.id}`);
+  console.log(`🔗 [NAVIGATION] Navegando a post - tipo: ${props.item.type}, original_id: ${props.item.original_id}, feed_id: ${props.item.id}, from_tab: ${currentTab}`);
   
   // Emitir evento para compatibilidad
   emit('item-click', props.item);
@@ -320,24 +343,30 @@ const handleItemClick = () => {
 const handleLike = async () => {
   if (isLikeLoading.value) return; // Prevenir clicks múltiples
   
+  // Debug de autenticación
+  console.log(`❤️ [FEEDITEM] Intentando dar like - feedId: ${props.item.id}`);
+  debugAuth();
+  
+  if (!isAuthenticated.value) {
+    console.warn('⚠️ [FEEDITEM] Usuario no autenticado - like cancelado');
+    return;
+  }
+  
   isLikeLoading.value = true;
-  const originalLiked = isLiked.value;
   
   try {
-    // Optimistic update
-    isLiked.value = !isLiked.value;
+    // Llamar al store que maneja la nueva API - SOLO PASAR EL ID
+    const response = await feedStore.toggleLike(props.item.id);
     
-    // Llamar al store que maneja la nueva API
-    const response = await feedStore.toggleLike(props.item);
-    
-    // Actualizar estado real basado en respuesta del servidor
-    isLiked.value = response.liked;
+    // El estado se actualiza automáticamente a través del store
+    // No necesitamos hacer actualizaciones optimistas
+    console.log(`✅ [FEEDITEM] Like procesado exitosamente:`, response);
     
     emit('like', props.item);
   } catch (error) {
-    // Rollback en caso de error
-    isLiked.value = originalLiked;
-    console.error('Error al dar like:', error);
+    console.error('❌ [FEEDITEM] Error al dar like:', error);
+    
+    // No mostrar doble notificación ya que el store ya la muestra
   } finally {
     isLikeLoading.value = false;
   }
@@ -580,8 +609,26 @@ const toggleExpanded = () => {
   transition: all 0.3s ease;
 }
 
+.stat.likes {
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 15px;
+  user-select: none;
+}
+
+.stat.likes:hover {
+  background: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+  transform: translateY(-1px);
+}
+
 .stat.likes.active {
   color: #dc3545;
+  background: rgba(220, 53, 69, 0.15);
+}
+
+.stat.likes.active:hover {
+  background: rgba(220, 53, 69, 0.2);
 }
 
 .stat:hover {
@@ -758,6 +805,21 @@ const toggleExpanded = () => {
   
   .action-btn:hover {
     background: #3a3a3a;
+  }
+  
+  .stat.likes:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+    transform: translateY(-1px);
+  }
+  
+  .stat.likes.active {
+    background: rgba(239, 68, 68, 0.25);
+    color: #ef4444;
+  }
+  
+  .stat.likes.active:hover {
+    background: rgba(239, 68, 68, 0.3);
   }
 }
 
