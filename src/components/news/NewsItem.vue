@@ -224,4 +224,18 @@ onMounted(() => {
 .news-item {
   will-change: transform, box-shadow;
 }
+
+.card {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+}
+html.dark .card { box-shadow: 0 12px 30px rgba(0,0,0,0.35); }
+.title { color: var(--text); }
+.meta { color: var(--muted); }
+.badge { background: var(--surface-2); border: 1px solid var(--border); color: var(--text); }
+.action { color: var(--muted); }
+.action:hover { color: var(--text); }
 </style> 

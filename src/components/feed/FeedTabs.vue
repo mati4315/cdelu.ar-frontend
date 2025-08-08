@@ -98,6 +98,8 @@ const stickyWidth = ref(0);
 const setRootTabsHeightVar = () => {
   // Expone la altura para que otros componentes (header) puedan igualarla
   document.documentElement.style.setProperty('--feed-tabs-height', `${tabsHeight.value || 60}px`);
+  // También expone el estado sticky para que el header sepa cuándo ocultarse
+  document.documentElement.style.setProperty('--feed-tabs-sticky', isSticky.value ? '1' : '0');
 };
 
 const updateStickyBoundsFromElement = (el: HTMLElement) => {
@@ -128,6 +130,7 @@ const handleScroll = () => {
   // Determinar si debe estar sticky (cuando llegue a la parte superior)
   if (rect.top <= 0) {
     isSticky.value = true;
+    setRootTabsHeightVar(); // Actualizar estado sticky
     // Fijar ancho y posición horizontal del contenedor para que coincida con el layout
     // Usamos el tamaño original del elemento cuando no era sticky (guardado en updateStickyBoundsFromElement)
     
@@ -148,6 +151,7 @@ const handleScroll = () => {
   } else {
     isSticky.value = false;
     isHidden.value = false;
+    setRootTabsHeightVar(); // Actualizar estado sticky
     // Mientras no sea sticky, actualizamos los límites tomando su posición real
     updateStickyBoundsFromElement(tabsContainer.value);
   }
@@ -221,8 +225,8 @@ onUnmounted(() => {
 
 .feed-tabs {
   display: flex;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  border-bottom: 1px solid #dee2e6;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
   width: 100%;
 }
 
@@ -238,34 +242,18 @@ onUnmounted(() => {
   cursor: pointer;
   font-size: 16px;
   font-weight: 500;
-  color: #6c757d;
-  transition: all 0.1s ease;
+  color: var(--muted);
+  transition: color 0.15s ease, background 0.15s ease;
   position: relative;
   min-height: 60px;
 }
 
-.tab:hover:not(.disabled) {
-  background: rgba(255, 255, 255, 0.5);
-  color: #495057;
-  transform: none;
-}
+.tab:hover:not(.disabled) { background: rgba(0,0,0,0.03); color: var(--text); }
+html.dark .tab:hover:not(.disabled) { background: rgba(255,255,255,0.06); }
 
-.tab.active {
-  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-  color: white;
-  font-weight: 600;
-  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
-}
+.tab.active { background: var(--accent); color: #fff; font-weight: 700; border-radius: 10px; }
 
-.tab.active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, #28a745, #20c997);
-}
+.tab.active::after { content: none; }
 
 .tab.disabled {
   opacity: 0.5;
@@ -291,27 +279,14 @@ onUnmounted(() => {
   transition: none;
 }
 
-.tab-count {
-  background: rgba(255, 255, 255, 0.2);
-  padding: 3px 8px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 700;
-  min-width: 24px;
-  text-align: center;
-  backdrop-filter: blur(4px);
-  transition: none;
-}
+.tab-count { background: var(--accent); color: #fff; padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: 700; min-width: 24px; text-align: center; }
 
 .tab.active .tab-count {
   background: rgba(255, 255, 255, 0.3);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.tab:not(.active) .tab-count {
-  background: #007bff;
-  color: white;
-}
+.tab:not(.active) .tab-count { background: var(--accent); color: #fff; opacity: 0.9; }
 
 .tabs-loading {
   position: absolute;
@@ -399,10 +374,7 @@ onUnmounted(() => {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   }
   
-  .feed-tabs {
-    background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
-    border-bottom-color: #4a5568;
-  }
+  .feed-tabs { background: var(--surface-2); border-bottom-color: var(--border); }
   
   .tab {
     color: #a0aec0;
@@ -441,9 +413,7 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-.tab:hover:not(.disabled)::before {
-  opacity: 0;
-}
+.tab:hover:not(.disabled)::before { opacity: 0; }
 
 /* Accesibilidad */
 .tab:focus {
