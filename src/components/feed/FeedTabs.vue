@@ -94,6 +94,7 @@ const lastScrollY = ref(0);
 const tabsHeight = ref(0);
 const stickyLeft = ref(0);
 const stickyWidth = ref(0);
+const initialTop = ref(0);
 
 const setRootTabsHeightVar = () => {
   // Expone la altura para que otros componentes (header) puedan igualarla
@@ -106,6 +107,15 @@ const updateStickyBoundsFromElement = (el: HTMLElement) => {
   const r = el.getBoundingClientRect();
   stickyLeft.value = r.left;
   stickyWidth.value = r.width;
+};
+
+const computeInitialTop = () => {
+  if (!tabsContainer.value) return;
+  const rect = tabsContainer.value.getBoundingClientRect();
+  initialTop.value = rect.top + window.scrollY; // posición absoluta en el documento
+  tabsHeight.value = tabsContainer.value.offsetHeight;
+  setRootTabsHeightVar();
+  updateStickyBoundsFromElement(tabsContainer.value);
 };
 
 const stickyStyle = computed(() => {
@@ -122,18 +132,19 @@ const handleScroll = () => {
   if (!tabsContainer.value) return;
   
   const currentScrollY = window.scrollY;
-  const rect = tabsContainer.value.getBoundingClientRect();
   const scrollDirection = currentScrollY > lastScrollY.value ? 'down' : 'up';
   const delta = Math.abs(currentScrollY - lastScrollY.value);
   const now = performance.now();
   
-  // Determinar si debe estar sticky (cuando llegue a la parte superior)
-  if (rect.top <= 0) {
-    isSticky.value = true;
-    setRootTabsHeightVar(); // Actualizar estado sticky
-    // Fijar ancho y posición horizontal del contenedor para que coincida con el layout
-    // Usamos el tamaño original del elemento cuando no era sticky (guardado en updateStickyBoundsFromElement)
-    
+  // Decidir sticky en base a la posición original en el documento
+  if (currentScrollY >= initialTop.value) {
+    if (!isSticky.value) {
+      isSticky.value = true;
+      setRootTabsHeightVar();
+      // al activarse, fijar límites actuales
+      updateStickyBoundsFromElement(tabsContainer.value.parentElement as HTMLElement || tabsContainer.value);
+    }
+
     // Si acabamos de cambiar de pestaña, no ocultar durante un corto periodo
     if (now < ignoreScrollUntil.value) {
       isHidden.value = false;
@@ -149,9 +160,11 @@ const handleScroll = () => {
       }
     }
   } else {
-    isSticky.value = false;
-    isHidden.value = false;
-    setRootTabsHeightVar(); // Actualizar estado sticky
+    if (isSticky.value) {
+      isSticky.value = false;
+      isHidden.value = false;
+      setRootTabsHeightVar();
+    }
     // Mientras no sea sticky, actualizamos los límites tomando su posición real
     updateStickyBoundsFromElement(tabsContainer.value);
   }
@@ -161,16 +174,13 @@ const handleScroll = () => {
 
 onMounted(() => {
   if (tabsContainer.value) {
-    tabsHeight.value = tabsContainer.value.offsetHeight;
-    setRootTabsHeightVar();
-    updateStickyBoundsFromElement(tabsContainer.value);
+    computeInitialTop();
   }
   
   window.addEventListener('scroll', handleScroll, { passive: true });
   window.addEventListener('resize', () => {
     if (tabsContainer.value) {
-      tabsHeight.value = tabsContainer.value.offsetHeight;
-      setRootTabsHeightVar();
+      computeInitialTop();
       // Recalcular ancho y left cuando no es sticky; si es sticky, usar el elemento padre inmediato
       if (!isSticky.value) {
         updateStickyBoundsFromElement(tabsContainer.value);
