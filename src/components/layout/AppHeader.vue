@@ -3,8 +3,8 @@
     ref="headerRef" 
     class="fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-in-out backdrop-blur-lg bg-white/80 dark:bg-gray-900/80 border-b border-gray-200/20 dark:border-gray-700/20"
     :class="{ 
-      '-translate-y-full': !isHeaderVisible && !isAtTop, 
-      'shadow-lg backdrop-blur-xl bg-white/90 dark:bg-gray-900/90': !isAtTop, 
+      '-translate-y-full': (!isHeaderVisible && !isAtTop) || isFeedTabsSticky, 
+      'shadow-lg backdrop-blur-xl bg-white/90 dark:bg-gray-900/90': !isAtTop,
       'shadow-md': isAtTop 
     }"
   >
@@ -127,6 +127,14 @@
                     <p class="text-sm text-gray-500 dark:text-gray-400">{{ authStore.user.email }}</p>
                   </div>
 
+                  <!-- Botón de refrescar (solo en Home) -->
+                  <button v-if="isHome" @click="handleRefreshFeed" class="flex items-center w-full px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50" :disabled="feedStore.isLoading">
+                    <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v6h6M20 20v-6h-6M4 10a8 8 0 0114.32-4.906M20 14a8 8 0 01-14.32 4.906"></path>
+                    </svg>
+                    Actualizar contenido
+                  </button>
+
                   <!-- Menu items -->
                   <router-link to="/perfil" class="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" @click="closeUserMenu">
                     <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -222,12 +230,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useWindowScroll, onClickOutside } from '@vueuse/core';
 import { useAuthStore } from '@/store/auth';
 import { useThemeStore } from '@/store/theme';
 import { useRouter } from 'vue-router';
 import UserAvatar from '@/components/ui/UserAvatar.vue';
+import { useFeedStore } from '@/store/feedStore';
 
 const headerRef = ref<HTMLElement | null>(null);
 const userMenuRef = ref<HTMLElement | null>(null);
@@ -239,9 +248,18 @@ let lastScrollY = 0;
 const authStore = useAuthStore();
 const themeStore = useThemeStore();
 const router = useRouter();
+const feedStore = useFeedStore();
 
 // Usar nuestro store de tema personalizado
 const { isDark, toggleTheme } = themeStore;
+
+// Computed para detectar si las tabs están sticky
+const isFeedTabsSticky = computed(() => {
+  const stickyValue = getComputedStyle(document.documentElement).getPropertyValue('--feed-tabs-sticky');
+  return stickyValue === '1';
+});
+
+const isHome = computed(() => router.currentRoute.value.name === 'Home');
 
 function handleScroll() {
   const currentScrollY = window.scrollY;
@@ -257,6 +275,13 @@ function handleScroll() {
     }
   }
   lastScrollY = currentScrollY < 0 ? 0 : currentScrollY;
+}
+
+function handleRefreshFeed() {
+  if (isHome.value) {
+    feedStore.refresh();
+    closeUserMenu();
+  }
 }
 
 const handleLogout = () => {
@@ -294,7 +319,6 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll);
 });
-
 </script>
 
 <style scoped>
