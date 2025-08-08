@@ -424,4 +424,51 @@ html.dark .tab:hover:not(.disabled) { background: rgba(255,255,255,0.06); }
 .tab:focus:not(.active) {
   background: rgba(0, 123, 255, 0.1);
 }
+
+/* --- Overrides para TEMA CLARO: restaurar diseño original --- */
+html:not(.dark) .feed-tabs {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-bottom: 1px solid #dee2e6;
+}
+
+html:not(.dark) .tab {
+  color: #6c757d;
+}
+
+html:not(.dark) .tab:hover:not(.disabled) {
+  background: rgba(255, 255, 255, 0.5);
+  color: #495057;
+}
+
+html:not(.dark) .tab.active {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  color: #ffffff;
+  font-weight: 600;
+  border-radius: 0;
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+html:not(.dark) .tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #28a745, #20c997);
+}
+
+html:not(.dark) .tab-count { 
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+html:not(.dark) .tab.active .tab-count { 
+  background: rgba(255, 255, 255, 0.3);
+}
+
+html:not(.dark) .tab:not(.active) .tab-count { 
+  background: #007bff;
+  color: #ffffff;
+}
 </style> 
