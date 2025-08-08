@@ -1,0 +1,19 @@
+# Default Avatar Placeholder
+
+Este archivo debe ser reemplazado por una imagen PNG de avatar por defecto.
+
+Características recomendadas:
+- Tamaño: 150x150 píxeles mínimo
+- Formato: PNG con transparencia
+- Contenido: Ícono genérico de usuario o silueta
+- Colores: Neutros (grises, azules suaves)
+
+Puedes usar:
+1. Un ícono de Font Awesome o similar
+2. Una silueta simple de usuario
+3. Un placeholder geométrico
+
+Herramientas sugeridas:
+- Figma/Adobe Illustrator para crear vectorial
+- Canva para diseño rápido
+- Gravatar default avatars como referencia 

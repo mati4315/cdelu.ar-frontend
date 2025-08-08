@@ -36,7 +36,6 @@ class FeedService {
       const currentToken = localStorage.getItem('token');
       if (currentToken) {
         config.headers.Authorization = `Bearer ${currentToken}`;
-        console.log(`🔑 [FEED SERVICE] Using token: ${currentToken.substring(0, 20)}...`);
       } else {
         console.warn('⚠️ [FEED SERVICE] No token available for request');
       }
@@ -132,11 +131,8 @@ class FeedService {
 
   // NUEVO: Feed unificado (pestaña "Todo")
   async getFeed(params: FeedParams = {}): Promise<FeedResponse> {
-    console.log('🗞️ [FEED SERVICE] getFeed called with params:', params);
-    
     try {
       const response = await this.apiClient.get<FeedResponse>('/feed', { params });
-      console.log('✅ [FEED SERVICE] getFeed response:', response.data);
       return response.data;
     } catch (error) {
       console.error('❌ [FEED SERVICE] Error in getFeed:', error);
@@ -146,11 +142,8 @@ class FeedService {
 
   // NUEVO: Solo noticias (equivale a la API actual de news)
   async getNews(params: FeedParams = {}): Promise<FeedResponse> {
-    console.log('📰 [FEED SERVICE] getNews called with params:', params);
-    
     try {
       const response = await this.apiClient.get<FeedResponse>('/feed/noticias', { params });
-      console.log('✅ [FEED SERVICE] getNews response:', response.data);
       return response.data;
     } catch (error) {
       console.error('❌ [FEED SERVICE] Error in getNews:', error);
@@ -160,11 +153,8 @@ class FeedService {
 
   // NUEVO: Solo comunidad
   async getCommunity(params: FeedParams = {}): Promise<FeedResponse> {
-    console.log('👥 [FEED SERVICE] getCommunity called with params:', params);
-    
     try {
       const response = await this.apiClient.get<FeedResponse>('/feed/comunidad', { params });
-      console.log('✅ [FEED SERVICE] getCommunity response:', response.data);
       return response.data;
     } catch (error) {
       console.error('❌ [FEED SERVICE] Error in getCommunity:', error);
@@ -174,11 +164,8 @@ class FeedService {
 
   // NUEVO: Estadísticas del feed
   async getFeedStats(): Promise<FeedStats> {
-    console.log('📊 [FEED SERVICE] getFeedStats called');
-    
     try {
       const response = await this.apiClient.get<FeedStats>('/feed/stats');
-      console.log('✅ [FEED SERVICE] getFeedStats response:', response.data);
       return response.data;
     } catch (error) {
       console.error('❌ [FEED SERVICE] Error in getFeedStats:', error);
@@ -188,8 +175,6 @@ class FeedService {
 
   // NUEVO: Elemento específico por original_id (ID del post original, no del feed)
   async getPostByOriginalId(type: FeedType, originalId: number): Promise<FeedItem> {
-    console.log(`🔍 [FEED SERVICE] getPostByOriginalId called - type: ${type}, originalId: ${originalId}`);
-    
     try {
       // Intentar primero el endpoint específico sin usar el interceptor de errores
       const response = await axios.get<FeedItem>(`${BASE_URL}/feed/by-original-id/${type}/${originalId}`, {
@@ -198,12 +183,10 @@ class FeedService {
           'Content-Type': 'application/json'
         }
       });
-      console.log('✅ [FEED SERVICE] getPostByOriginalId response:', response.data);
       return response.data;
     } catch (error: any) {
       // Si el endpoint específico no existe (404), hacer fallback a búsqueda en feed
       if (error.response?.status === 404) {
-        console.log('⚠️ [FEED SERVICE] Endpoint específico no encontrado, usando fallback');
         
         try {
           // Buscar en el feed filtrando por tipo y original_id
@@ -216,7 +199,6 @@ class FeedService {
           );
           
           if (feedItem) {
-            console.log('✅ [FEED SERVICE] getPostByOriginalId fallback found:', feedItem);
             return feedItem;
           } else {
             throw new Error(`Item no encontrado en feed - type: ${type}, original_id: ${originalId}`);
@@ -234,11 +216,8 @@ class FeedService {
 
   // NUEVO: Elemento específico por feed ID (del feed unificado)
   async getFeedItem(type: FeedType, id: number): Promise<FeedItem> {
-    console.log(`🔍 [FEED SERVICE] getFeedItem called - type: ${type}, feedId: ${id}`);
-    
     try {
       const response = await this.apiClient.get<FeedItem>(`/feed/${type}/${id}`);
-      console.log('✅ [FEED SERVICE] getFeedItem response:', response.data);
       return response.data;
     } catch (error) {
       console.error('❌ [FEED SERVICE] Error in getFeedItem:', error);
@@ -260,8 +239,6 @@ class FeedService {
 
   // Método helper para obtener contenido según pestaña
   async getContentByTab(tab: 'todo' | 'noticias' | 'comunidad', params: FeedParams = {}): Promise<FeedResponse> {
-    console.log(`🎯 [FEED SERVICE] getContentByTab called - tab: ${tab}, params:`, params);
-    
     switch (tab) {
       case 'todo':
         return this.getFeed(params);
@@ -302,12 +279,9 @@ class FeedService {
 
   // ❤️ LIKES - API UNIFICADA usando feedId
   async toggleLike(feedId: number, retryCount = 0): Promise<{ liked: boolean; likes_count: number; message: string }> {
-    console.log(`❤️ [FEED SERVICE] toggleLike called - feedId: ${feedId}${retryCount > 0 ? ` (retry ${retryCount})` : ''}`);
-    console.log(`🔑 [FEED SERVICE] Current token: ${this.apiClient.defaults.headers.Authorization?.toString().substring(0, 20)}...`);
     
     try {
       const response = await this.apiClient.post(`/feed/${feedId}/like/toggle`);
-      console.log(`✅ [FEED SERVICE] toggleLike response:`, response.data);
       
       // Validar estructura de respuesta
       const data = response.data;
@@ -355,11 +329,9 @@ class FeedService {
 
   // 💬 COMENTARIOS - API UNIFICADA usando feedId
   async getComments(feedId: number): Promise<any[]> {
-    console.log(`💬 [FEED SERVICE] getComments called - feedId: ${feedId}`);
     
     try {
       const response = await this.apiClient.get<any[]>(`/feed/${feedId}/comments`);
-      console.log('✅ [FEED SERVICE] getComments response:', response.data);
       return response.data;
     } catch (error) {
       console.error('❌ [FEED SERVICE] Error in getComments:', error);
@@ -369,12 +341,10 @@ class FeedService {
 
   // Crear comentario
   async createComment(feedId: number, content: string): Promise<{ id: number; comments_count: number; message: string }> {
-    console.log(`💬 [FEED SERVICE] createComment called - feedId: ${feedId}, content:`, content);
     
     try {
       const payload = { content };
       const response = await this.apiClient.post<{ id: number; comments_count: number; message: string }>(`/feed/${feedId}/comments`, payload);
-      console.log('✅ [FEED SERVICE] createComment response:', response.data);
       return response.data;
     } catch (error) {
       console.error('❌ [FEED SERVICE] Error in createComment:', error);

@@ -107,13 +107,11 @@ export const useSurveyStore = defineStore('survey', {
           this.activeSurveys = response.data;
         } else {
           // Si no hay encuestas activas, obtener todas y filtrar las activas
-          console.log('🔧 Endpoint de encuestas activas vacío, usando filtro local...');
           const allSurveysResponse = await surveyService.getSurveys({ limit: 20 });
           
           if (allSurveysResponse.success) {
             // Filtrar encuestas activas en el frontend
             this.activeSurveys = allSurveysResponse.data.filter(survey => survey.status === 'active');
-            console.log(`✅ Encuestas activas filtradas: ${this.activeSurveys.length}`);
           } else {
             this.error = allSurveysResponse.message || 'Error cargando encuestas';
           }
@@ -390,7 +388,6 @@ export const useSurveyStore = defineStore('survey', {
      */
     async reloadSurvey(id: number) {
       try {
-        console.log('🔄 Recargando encuesta:', id);
         const response = await surveyService.getSurvey(id);
         
         if (response.success) {
@@ -401,8 +398,6 @@ export const useSurveyStore = defineStore('survey', {
           if (this.currentSurvey && this.currentSurvey.id === id) {
             this.currentSurvey = response.data;
           }
-          
-          console.log('✅ Encuesta recargada exitosamente');
         } else {
           console.error('❌ Error recargando encuesta:', response.message);
         }

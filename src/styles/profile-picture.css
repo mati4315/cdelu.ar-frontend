@@ -1,0 +1,366 @@
+/* =============================================================================
+   PROFILE PICTURE GLOBAL STYLES
+   ============================================================================= */
+
+/* Variables CSS para consistencia */
+:root {
+  --avatar-border-radius: 50%;
+  --avatar-border-width: 2px;
+  --avatar-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --avatar-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.15);
+  --avatar-transition: all 0.2s ease;
+  
+  /* Colores para avatares por defecto */
+  --avatar-bg-gradient-start: #3b82f6;
+  --avatar-bg-gradient-end: #8b5cf6;
+  --avatar-text-color: white;
+  
+  /* Estados */
+  --avatar-loading-bg: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  --avatar-error-bg: #fef2f2;
+  --avatar-error-border: #fecaca;
+}
+
+/* Dark mode variables */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --avatar-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --avatar-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.4);
+    --avatar-loading-bg: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+    --avatar-error-bg: #451a1a;
+    --avatar-error-border: #dc2626;
+  }
+}
+
+/* Clase base para todos los avatares */
+.profile-avatar-base {
+  border-radius: var(--avatar-border-radius);
+  transition: var(--avatar-transition);
+  box-shadow: var(--avatar-shadow);
+}
+
+.profile-avatar-base:hover {
+  box-shadow: var(--avatar-shadow-hover);
+}
+
+/* Tamaños predefinidos para avatares */
+.profile-avatar-xs {
+  width: 20px;
+  height: 20px;
+}
+
+.profile-avatar-sm {
+  width: 24px;
+  height: 24px;
+}
+
+.profile-avatar-md {
+  width: 32px;
+  height: 32px;
+}
+
+.profile-avatar-lg {
+  width: 48px;
+  height: 48px;
+}
+
+.profile-avatar-xl {
+  width: 64px;
+  height: 64px;
+}
+
+.profile-avatar-2xl {
+  width: 80px;
+  height: 80px;
+}
+
+.profile-avatar-3xl {
+  width: 96px;
+  height: 96px;
+}
+
+/* Estados de avatares */
+.profile-avatar-loading {
+  background: var(--avatar-loading-bg);
+  background-size: 200% 100%;
+  animation: avatar-shimmer 1.5s infinite;
+}
+
+.profile-avatar-error {
+  background: var(--avatar-error-bg);
+  border: 2px solid var(--avatar-error-border);
+}
+
+.profile-avatar-online {
+  position: relative;
+}
+
+.profile-avatar-online::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 25%;
+  height: 25%;
+  background: #10b981;
+  border: 2px solid white;
+  border-radius: 50%;
+  transform: translate(25%, 25%);
+}
+
+/* Grupos de avatares */
+.profile-avatar-group {
+  display: flex;
+  align-items: center;
+}
+
+.profile-avatar-group .profile-avatar-base {
+  margin-left: -8px;
+  border: 2px solid white;
+  position: relative;
+}
+
+.profile-avatar-group .profile-avatar-base:first-child {
+  margin-left: 0;
+}
+
+.profile-avatar-group .profile-avatar-base:hover {
+  z-index: 10;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .profile-avatar-responsive-sm {
+    width: 24px !important;
+    height: 24px !important;
+  }
+  
+  .profile-avatar-responsive-md {
+    width: 32px !important;
+    height: 32px !important;
+  }
+  
+  .profile-avatar-responsive-lg {
+    width: 40px !important;
+    height: 40px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .profile-avatar-responsive-xs {
+    width: 20px !important;
+    height: 20px !important;
+  }
+  
+  .profile-avatar-group .profile-avatar-base {
+    margin-left: -4px;
+  }
+}
+
+/* Upload area styles */
+.profile-upload-area {
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+  transition: var(--avatar-transition);
+  cursor: pointer;
+}
+
+.profile-upload-area:hover {
+  border-color: #3b82f6;
+  background-color: #f8fafc;
+}
+
+.profile-upload-area.dragover {
+  border-color: #3b82f6;
+  background-color: #eff6ff;
+}
+
+.profile-upload-area.error {
+  border-color: #ef4444;
+  background-color: #fef2f2;
+}
+
+/* Dark mode upload area */
+@media (prefers-color-scheme: dark) {
+  .profile-upload-area {
+    border-color: #4b5563;
+    background-color: transparent;
+  }
+  
+  .profile-upload-area:hover {
+    border-color: #3b82f6;
+    background-color: #1f2937;
+  }
+  
+  .profile-upload-area.dragover {
+    background-color: #1e3a8a;
+  }
+  
+  .profile-upload-area.error {
+    border-color: #ef4444;
+    background-color: #451a1a;
+  }
+}
+
+/* Progress indicators */
+.profile-upload-progress {
+  width: 100%;
+  height: 4px;
+  background-color: #e5e7eb;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.profile-upload-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--avatar-bg-gradient-start), var(--avatar-bg-gradient-end));
+  transition: width 0.3s ease;
+  border-radius: 2px;
+}
+
+/* Avatar fallback for initials */
+.profile-avatar-initials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--avatar-bg-gradient-start), var(--avatar-bg-gradient-end));
+  color: var(--avatar-text-color);
+  font-weight: 600;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Interactive avatar styles */
+.profile-avatar-interactive {
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-avatar-interactive::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-avatar-interactive:hover::before {
+  opacity: 1;
+}
+
+.profile-avatar-interactive::after {
+  content: '📷';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.2em;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 1;
+}
+
+.profile-avatar-interactive:hover::after {
+  opacity: 1;
+}
+
+/* Animations */
+@keyframes avatar-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes avatar-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes avatar-bounce-in {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.profile-avatar-animate-in {
+  animation: avatar-bounce-in 0.5s ease-out;
+}
+
+/* Accessibility improvements */
+.profile-avatar-base:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.profile-avatar-base[aria-describedby] {
+  cursor: help;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .profile-avatar-base {
+    border: 2px solid currentColor;
+  }
+  
+  .profile-upload-area {
+    border-width: 3px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .profile-avatar-base,
+  .profile-upload-area,
+  .profile-avatar-interactive::before,
+  .profile-avatar-interactive::after {
+    transition: none;
+  }
+  
+  .profile-avatar-loading {
+    animation: none;
+    background: #e5e7eb;
+  }
+  
+  .profile-avatar-animate-in {
+    animation: none;
+  }
+}
+
+/* Print styles */
+@media print {
+  .profile-avatar-interactive::before,
+  .profile-avatar-interactive::after {
+    display: none;
+  }
+  
+  .profile-upload-area {
+    border: 1px solid #000;
+  }
+} 

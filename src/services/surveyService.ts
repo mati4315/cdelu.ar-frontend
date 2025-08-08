@@ -20,13 +20,7 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api
 
 // Obtener token del localStorage
 function getAuthToken(): string | null {
-  const token = localStorage.getItem('token');
-  if (token) {
-    console.log('🔑 Token encontrado:', token.substring(0, 20) + '...');
-  } else {
-    console.log('⚠️ No hay token disponible');
-  }
-  return token;
+  return localStorage.getItem('token');
 }
 
 // Crear cliente axios para encuestas
@@ -42,9 +36,6 @@ surveyClient.interceptors.request.use((config) => {
   const token = getAuthToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
-    console.log('🔑 Token enviado en request:', token.substring(0, 20) + '...');
-  } else {
-    console.log('⚠️ No hay token disponible');
   }
   return config;
 });
@@ -73,7 +64,14 @@ async function handleApiError(error: any): Promise<never> {
       console.log('📋 Detalles de validación:', apiError);
       throw new Error(`Error de validación: ${validationMessage}`);
     } else if (status === 500) {
-      throw new Error('Error interno del servidor. Por favor, intenta nuevamente.');
+      // Mensajes específicos para errores 500 comunes en votación
+      if (apiError.message?.includes('votado') || apiError.message?.includes('duplicate')) {
+        throw new Error('Ya has participado en esta encuesta. No puedes votar nuevamente.');
+      }
+      if (apiError.message?.includes('límite') || apiError.message?.includes('limit')) {
+        throw new Error('Has alcanzado el límite de votos permitidos para esta encuesta.');
+      }
+      throw new Error('Error interno del servidor. La encuesta puede haber alcanzado su límite o ya has votado. Intenta refrescar la página.');
     } else {
       throw new Error(apiError.error || apiError.message || 'Error en la API');
     }

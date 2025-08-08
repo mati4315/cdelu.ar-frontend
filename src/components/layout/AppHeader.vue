@@ -4,12 +4,12 @@
     class="fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-in-out backdrop-blur-lg bg-white/80 dark:bg-gray-900/80 border-b border-gray-200/20 dark:border-gray-700/20"
     :class="{ 
       '-translate-y-full': !isHeaderVisible && !isAtTop, 
-      'py-2 shadow-lg backdrop-blur-xl bg-white/90 dark:bg-gray-900/90': !isAtTop, 
-      'py-4 shadow-md': isAtTop 
+      'shadow-lg backdrop-blur-xl bg-white/90 dark:bg-gray-900/90': !isAtTop, 
+      'shadow-md': isAtTop 
     }"
   >
-    <div class="container mx-auto px-4 lg:px-6">
-      <div class="flex justify-between items-center">
+    <div class="container mx-auto px-4 lg:px-6 h-full w-full">
+      <div class="flex justify-between items-center h-full w-full">
         <!-- Izquierda: Menú y Controles -->
         <div class="flex items-center space-x-4 min-w-0 flex-1">
           <!-- Botón de menú -->
@@ -85,9 +85,12 @@
               >
                 <!-- Avatar -->
                 <div class="relative">
-                  <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm transition-all duration-200 group-hover:scale-105 group-hover:shadow-lg">
-                    {{ authStore.user.nombre.charAt(0).toUpperCase() }}
-                  </div>
+                  <UserAvatar 
+                    :user="authStore.user"
+                    :size="32"
+                    :bordered="false"
+                    class="transition-all duration-200 group-hover:scale-105"
+                  />
                   <!-- Indicador online -->
                   <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-white dark:border-gray-900 rounded-full"></div>
                 </div>
@@ -224,6 +227,7 @@ import { useWindowScroll, onClickOutside } from '@vueuse/core';
 import { useAuthStore } from '@/store/auth';
 import { useThemeStore } from '@/store/theme';
 import { useRouter } from 'vue-router';
+import UserAvatar from '@/components/ui/UserAvatar.vue';
 
 const headerRef = ref<HTMLElement | null>(null);
 const userMenuRef = ref<HTMLElement | null>(null);
@@ -296,6 +300,16 @@ onUnmounted(() => {
 <style scoped>
 .container {
   max-width: 1200px;
+}
+
+/* Forzar altura del header a coincidir con la de feed-tabs cuando esté definida */
+header {
+  height: var(--feed-tabs-height, 64px);
+  display: flex;
+  align-items: center; /* Centrar verticalmente contenido dentro del header */
+  left: 0;
+  right: 0;
+  width: 100%;
 }
 
 /* Transiciones para el cambio de tema */

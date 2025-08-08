@@ -11,17 +11,21 @@ export interface SurveyOption {
 export interface Survey {
   id: number;
   question: string;
-  status: 'active' | 'inactive' | 'completed';
+  status: 'active' | 'inactive' | 'expired';
   is_multiple_choice: boolean;
   max_votes_per_user: number;
   total_votes: number;
   options_count: number;
-  user_voted?: boolean;
-  user_votes?: number[];
+  expires_at?: string;
   created_at: string;
   updated_at: string;
-  expires_at?: string;
   options: SurveyOption[];
+  // Nuevos campos del sistema de estado binario
+  has_voted?: boolean;
+  show_options?: boolean;
+  // Campos legacy (mantener para compatibilidad)
+  user_voted?: boolean;
+  user_votes?: number[];
 }
 
 export interface SurveyStats {

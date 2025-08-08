@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import custom styles */
+@import './profile-picture.css';
+
 /* Estilos personalizados adicionales */
 body {
   font-family: sans-serif; /* O la fuente que prefieras */

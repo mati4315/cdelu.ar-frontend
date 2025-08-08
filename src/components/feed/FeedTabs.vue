@@ -6,7 +6,7 @@
     <div ref="tabsContainer" class="feed-tabs-container" :class="{
       'sticky': isSticky,
       'hidden': isHidden
-    }">
+    }" :style="stickyStyle">
       <div class="feed-tabs">
         <button
           v-for="tab in tabs"
@@ -76,8 +76,12 @@ const formatCount = (count: number | null): string => {
   return count.toString();
 };
 
+const ignoreScrollUntil = ref<number>(0);
+
 const handleTabClick = (tab: 'todo' | 'noticias' | 'comunidad') => {
   if (!props.disabledTabs?.includes(tab)) {
+    // Evitar que el cambio de pestaña dispare ocultamientos indeseados
+    ignoreScrollUntil.value = performance.now() + 700; // 700ms de gracia
     emit('tab-change', tab);
   }
 };
@@ -88,6 +92,28 @@ const isSticky = ref(false);
 const isHidden = ref(false);
 const lastScrollY = ref(0);
 const tabsHeight = ref(0);
+const stickyLeft = ref(0);
+const stickyWidth = ref(0);
+
+const setRootTabsHeightVar = () => {
+  // Expone la altura para que otros componentes (header) puedan igualarla
+  document.documentElement.style.setProperty('--feed-tabs-height', `${tabsHeight.value || 60}px`);
+};
+
+const updateStickyBoundsFromElement = (el: HTMLElement) => {
+  const r = el.getBoundingClientRect();
+  stickyLeft.value = r.left;
+  stickyWidth.value = r.width;
+};
+
+const stickyStyle = computed(() => {
+  return isSticky.value
+    ? {
+        left: `${stickyLeft.value}px`,
+        width: `${stickyWidth.value}px`,
+      }
+    : {};
+});
 
 // Función para manejar el scroll
 const handleScroll = () => {
@@ -96,20 +122,34 @@ const handleScroll = () => {
   const currentScrollY = window.scrollY;
   const rect = tabsContainer.value.getBoundingClientRect();
   const scrollDirection = currentScrollY > lastScrollY.value ? 'down' : 'up';
+  const delta = Math.abs(currentScrollY - lastScrollY.value);
+  const now = performance.now();
   
   // Determinar si debe estar sticky (cuando llegue a la parte superior)
   if (rect.top <= 0) {
     isSticky.value = true;
+    // Fijar ancho y posición horizontal del contenedor para que coincida con el layout
+    // Usamos el tamaño original del elemento cuando no era sticky (guardado en updateStickyBoundsFromElement)
     
-    // Lógica de ocultación basada en dirección del scroll
-    if (scrollDirection === 'up' && currentScrollY > tabsHeight.value) {
-      isHidden.value = true;
-    } else if (scrollDirection === 'down') {
+    // Si acabamos de cambiar de pestaña, no ocultar durante un corto periodo
+    if (now < ignoreScrollUntil.value) {
       isHidden.value = false;
+    } else {
+      // Lógica de ocultación: ocultar solo al desplazarse hacia arriba con un umbral
+      const hideThreshold = 12; // px
+      const minScrollForHide = Math.max(100, tabsHeight.value);
+
+      if (scrollDirection === 'up' && delta > hideThreshold && currentScrollY > minScrollForHide) {
+        isHidden.value = true;
+      } else if (scrollDirection === 'down' && delta > 0) {
+        isHidden.value = false;
+      }
     }
   } else {
     isSticky.value = false;
     isHidden.value = false;
+    // Mientras no sea sticky, actualizamos los límites tomando su posición real
+    updateStickyBoundsFromElement(tabsContainer.value);
   }
   
   lastScrollY.value = currentScrollY;
@@ -118,14 +158,29 @@ const handleScroll = () => {
 onMounted(() => {
   if (tabsContainer.value) {
     tabsHeight.value = tabsContainer.value.offsetHeight;
+    setRootTabsHeightVar();
+    updateStickyBoundsFromElement(tabsContainer.value);
   }
   
   window.addEventListener('scroll', handleScroll, { passive: true });
+  window.addEventListener('resize', () => {
+    if (tabsContainer.value) {
+      tabsHeight.value = tabsContainer.value.offsetHeight;
+      setRootTabsHeightVar();
+      // Recalcular ancho y left cuando no es sticky; si es sticky, usar el elemento padre inmediato
+      if (!isSticky.value) {
+        updateStickyBoundsFromElement(tabsContainer.value);
+      } else if (tabsContainer.value.parentElement) {
+        updateStickyBoundsFromElement(tabsContainer.value.parentElement as HTMLElement);
+      }
+    }
+  }, { passive: true });
   handleScroll(); // Verificar estado inicial
 });
 
 onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll);
+  // No es necesario limpiar la variable global al desmontar
 });
 </script>
 
@@ -148,27 +203,27 @@ onUnmounted(() => {
 .feed-tabs-container.sticky {
   position: fixed;
   top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
-  max-width: 800px;
+  /* left y width se ajustan dinámicamente para coincidir con el contenedor del feed */
+  transform: translateY(0);
+  /* Ocupa todo el ancho de la ventana */
   border-radius: 0;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 100;
 }
 
 .feed-tabs-container.sticky.hidden {
-  transform: translateX(-50%) translateY(-100%);
+  transform: translateY(-100%);
 }
 
 .feed-tabs-container.sticky:not(.hidden) {
-  transform: translateX(-50%) translateY(0);
+  transform: translateY(0);
 }
 
 .feed-tabs {
   display: flex;
   background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
   border-bottom: 1px solid #dee2e6;
+  width: 100%;
 }
 
 .tab {
@@ -292,9 +347,6 @@ onUnmounted(() => {
 @media (max-width: 768px) {
   .feed-tabs-container.sticky {
     left: 0;
-    transform: translateX(0);
-    max-width: 100%;
-    width: 100vw;
   }
   
   .feed-tabs-container.sticky.hidden {

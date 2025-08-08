@@ -61,6 +61,30 @@ export const useAuthStore = defineStore('auth', {
       // Podrías querer redirigir al login aquí
       // router.push('/login');
     },
+    
+    // Actualizar perfil del usuario (para foto de perfil, etc.)
+    updateUserProfile(updatedUser: User) {
+      this.user = updatedUser;
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+    },
+
+    // Refrescar datos del usuario desde el servidor
+    async refreshUserProfile() {
+      if (!this.token) return;
+      
+      this.isLoading = true;
+      try {
+        // Importamos el profileService dentro de la función para evitar dependencias circulares
+        const { default: profileService } = await import('@/services/profileService');
+        const response = await profileService.getMyProfile();
+        this.updateUserProfile(response.user);
+      } catch (e: any) {
+        this.error = e.message || 'Error al actualizar el perfil';
+        console.error('Error refreshing profile:', e);
+      } finally {
+        this.isLoading = false;
+      }
+    },
     // Acción para cargar el estado inicial desde localStorage si es necesario,
     // aunque el state inicial ya lo hace.
     // initializeAuth() {

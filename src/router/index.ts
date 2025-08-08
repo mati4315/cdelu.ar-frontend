@@ -12,6 +12,7 @@ import LotteryDetailView from '@/views/LotteryDetailView.vue';
 import SurveyView from '@/views/SurveyView.vue';
 import SurveyAdminView from '@/views/SurveyAdminView.vue';
 import AdminLogin from '@/components/survey/AdminLogin.vue';
+import ProfileView from '@/views/ProfileView.vue';
 // Importa otras vistas según sea necesario, por ejemplo, LoginView, RegisterView
 
 const routes: Array<RouteRecordRaw> = [
@@ -92,6 +93,12 @@ const routes: Array<RouteRecordRaw> = [
     path: '/surveys/admin/login',
     name: 'SurveyAdminLogin',
     component: AdminLogin,
+  },
+  {
+    path: '/perfil',
+    name: 'Profile',
+    component: ProfileView,
+    meta: { requiresAuth: true }
   },
   // Agrega aquí más rutas según tu documentación (Dashboard, Profile, etc.)
 ];

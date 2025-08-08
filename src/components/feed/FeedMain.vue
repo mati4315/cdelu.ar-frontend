@@ -52,7 +52,7 @@
     />
     
     <!-- Contenido del feed -->
-    <div class="feed-content">
+    <div class="feed-content" ref="feedContentRef">
       <!-- Loading inicial -->
       <div v-if="isLoading && currentContent.length === 0" class="feed-skeleton">
         <div v-for="i in 3" :key="i" class="skeleton-item">
@@ -101,7 +101,6 @@
           v-else
           class="feed-items"
         >
-<<<<<<< HEAD
           <template v-for="(item, index) in currentContent" :key="`${item.type}-${item.id}`">
             <!-- Contenido normal -->
             <FeedItem
@@ -136,20 +135,7 @@
               @click="handleAdClick"
             />
           </template>
-        </TransitionGroup>
-=======
-          <FeedItem
-            v-for="item in currentContent"
-            :key="`${item.type}-${item.id}`"
-            :item="item"
-            :show-actions="true"
-            @item-click="handleItemClick"
-            @like="handleLike"
-            @comments="handleComments"
-            @share="handleShare"
-          />
         </div>
->>>>>>> 20577a1183f8832f97cb7c1847d49f3a457e4c0a
         
         <!-- Loading para infinite scroll -->
         <div v-if="isInfiniteLoading" class="infinite-loading">
@@ -177,7 +163,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useFeedStore } from '@/store/feedStore';
@@ -230,6 +216,7 @@ const {
 // Refs para infinite scroll
 const infiniteScrollTrigger = ref<HTMLElement | null>(null);
 const intersectionObserver = ref<IntersectionObserver | null>(null);
+const feedContentRef = ref<HTMLElement | null>(null);
 
 // Refs para manejo de scroll por pestaña
 const scrollPositions = ref<Record<FeedTab, number>>({
@@ -520,9 +507,8 @@ const saveScrollPosition = () => {
     try {
       const storageKey = `feedScrollPositions`;
       sessionStorage.setItem(storageKey, JSON.stringify(scrollPositions.value));
-      console.log(`💾 [SCROLL] Guardada posición para ${currentTab.value}: ${scrollTop}px (persistida en sessionStorage)`);
     } catch (error) {
-      console.log(`💾 [SCROLL] Guardada posición para ${currentTab.value}: ${scrollTop}px (solo en memoria)`);
+      // Error guardando en sessionStorage
     }
   }, 300) as unknown as number; // Debounce de 300ms
 };
@@ -563,8 +549,6 @@ const loadScrollPositions = () => {
 
 // Lifecycle
 onMounted(async () => {
-  console.log('🚀 [FEED MAIN] Component mounted');
-  
   // Cargar posiciones de scroll guardadas
   loadScrollPositions();
   
@@ -573,7 +557,6 @@ onMounted(async () => {
   
   // Si no hay pestaña en URL, establecer la inicial y actualizar URL
   if (!route.query.tab) {
-    console.log(`🔗 [FEED MAIN] No hay tab en URL, estableciendo inicial: ${props.initialTab}`);
     try {
       await router.replace({
         path: route.path,
@@ -583,20 +566,18 @@ onMounted(async () => {
         }
       });
     } catch (error) {
-      console.warn('⚠️ [FEED MAIN] Error al establecer tab inicial en URL:', error);
+      console.warn('⚠️ Error al establecer tab inicial en URL:', error);
     }
   }
   
-<<<<<<< HEAD
   // Cargar anuncios con lotería
   await initializeAdsWithLottery();
-=======
+  
   // Cargar contenido y estadísticas
   await Promise.all([
     feedStore.loadFeed(currentTab.value, true),
     feedStore.loadStats()
   ]);
->>>>>>> 20577a1183f8832f97cb7c1847d49f3a457e4c0a
   
   // Configurar infinite scroll después de la carga inicial
   if (props.enableInfiniteScroll) {
@@ -620,7 +601,6 @@ onMounted(async () => {
   
   // Cleanup en unmount
   onUnmounted(() => {
-    console.log('🧹 [FEED MAIN] Component unmounting');
     destroyInfiniteScroll();
     window.removeEventListener('beforeunload', handleBeforeUnload);
     window.removeEventListener('scroll', handleScroll);

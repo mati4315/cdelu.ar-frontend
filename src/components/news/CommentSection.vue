@@ -36,11 +36,29 @@
     </div>
     <ul v-else class="space-y-4">
       <li v-for="comment in comments" :key="comment.id" class="comment-item bg-gray-50 dark:bg-gray-700/50 p-4 rounded-md shadow dark:shadow-gray-900/50 transition-colors duration-300">
-        <div class="flex justify-between items-start">
-          <p class="font-semibold text-gray-800 dark:text-gray-100">{{ comment.autor }}</p>
-          <span class="text-xs text-gray-500 dark:text-gray-400">{{ formatDate(comment.created_at) }}</span>
+        <div class="flex items-start space-x-3">
+          <!-- Avatar del usuario -->
+                     <UserAvatar 
+             :user="comment.user || { id: comment.user_id, nombre: comment.autor, email: '', rol: 'usuario' }"
+             :size="32"
+             :clickable="false"
+           />
+          
+          <!-- Contenido del comentario -->
+          <div class="flex-1 min-w-0">
+            <div class="flex justify-between items-start">
+              <p class="font-semibold text-gray-800 dark:text-gray-100 truncate">
+                {{ comment.autor }}
+              </p>
+              <span class="text-xs text-gray-500 dark:text-gray-400 ml-2 flex-shrink-0">
+                {{ formatDate(comment.created_at) }}
+              </span>
+            </div>
+            <p class="text-gray-700 dark:text-gray-300 mt-1 break-words">
+              {{ comment.content }}
+            </p>
+          </div>
         </div>
-        <p class="text-gray-700 dark:text-gray-300 mt-1">{{ comment.content }}</p>
       </li>
     </ul>
   </div>
@@ -50,7 +68,8 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useNewsStore } from '@/store/news';
 import { useAuthStore } from '@/store/auth';
-import type { Comment } from '@/types/api';
+import type { Comment, User } from '@/types/api';
+import UserAvatar from '@/components/ui/UserAvatar.vue';
 
 const props = defineProps<{
   noticiaId: number | string;
