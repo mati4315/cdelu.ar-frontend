@@ -1,11 +1,112 @@
+@import './profile-picture.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Import custom styles */
-@import './profile-picture.css';
-
 /* Estilos personalizados adicionales */
 body {
   font-family: sans-serif; /* O la fuente que prefieras */
+}
+
+/* ==========================
+   Sistema de colores global (Light/Dark)
+   ========================== */
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface-2: #f8fafc;
+  --text: #111827; /* gray-900 */
+  --muted: #6b7280; /* gray-500 */
+  --border: #e5e7eb; /* gray-200 */
+  --accent: #3b82f6; /* blue-500 */
+  --success: #22c55e; /* green-500 */
+  --warning: #f59e0b; /* amber-500 */
+  --danger: #ef4444; /* red-500 */
+}
+
+html.dark,
+html[data-theme="dark"] {
+  --bg: #0f141a;
+  --surface: #111827; /* gray-900 */
+  --surface-2: #1f2937; /* gray-800 */
+  --text: #e5e7eb; /* gray-200 */
+  --muted: #9ca3af; /* gray-400 */
+  --border: #374151; /* gray-700 */
+  --accent: #60a5fa; /* blue-400 */
+  --success: #34d399; /* emerald-400 */
+  --warning: #fbbf24; /* amber-400 */
+  --danger: #f87171; /* red-400 */
+}
+
+/* Base */
+html, body {
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+/* Enlaces */
+a { color: var(--accent); }
+a:hover { opacity: 0.9; }
+
+/* Bordes y superficies comunes */
+.feed-content,
+.feed-header,
+.feed-tabs-container,
+.stats-container .stat-card,
+.empty-state,
+.feed-error,
+.dropdown,
+.modal,
+.card,
+.panel,
+.section,
+.news-item,
+.feed-item {
+  background-color: var(--surface);
+  color: var(--text);
+}
+
+/* Acentos/controles */
+.button-primary,
+.refresh-btn {
+  background-color: var(--accent);
+  color: #fff;
+}
+.button-primary:hover,
+.refresh-btn:hover { filter: brightness(0.95); }
+
+/* Estados informativos */
+.text-muted { color: var(--muted); }
+.border-muted { border-color: var(--border); }
+
+/* Tabs: asegurar contraste en ambos temas */
+.feed-tabs { background: var(--surface-2); border-bottom: 1px solid var(--border); }
+.tab { color: var(--muted); }
+.tab:hover:not(.disabled) { background: rgba(255,255,255,0.04); color: var(--text); }
+html:not(.dark) .tab:hover:not(.disabled) { background: rgba(0,0,0,0.03); }
+.tab.active { color: #fff; }
+.tab-count { background: var(--accent); color: #fff; }
+.tab.active .tab-count { background: rgba(255,255,255,0.25); }
+
+/* Cards y secciones internas */
+.feed-main { background-color: var(--bg); }
+.feed-content { box-shadow: 0 4px 16px rgba(0,0,0,0.08); border-radius: 12px; }
+html.dark .feed-content { box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+
+/* Inputs y campos por defecto */
+input, select, textarea {
+  background-color: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+input::placeholder, textarea::placeholder { color: var(--muted); }
+
+/* Badges/etiquetas comunes */
+.badge { background-color: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+.badge--accent { background-color: var(--accent); color: #fff; }
+
+/* Mejoras de enfoque para accesibilidad */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 } 

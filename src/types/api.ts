@@ -6,6 +6,8 @@ export interface User {
   profile_picture_url?: string | null;
   created_at?: string; // Asumiendo que las fechas son strings ISO
   updated_at?: string;
+  // Total de comentarios del usuario (si el backend lo provee)
+  comments_count?: number;
 }
 
 export interface LoginPayload {
@@ -93,11 +95,32 @@ export interface ProfilePictureUploadResponse {
   profile_picture_url: string;
 }
 
+export interface ProfileStats {
+  comments_count?: number;
+  lottery_participations?: number;
+  lottery_wins?: number;
+  community_posts_count?: number;
+}
+
 export interface ProfileResponse {
   user: User;
+  stats?: ProfileStats; // opcional si el backend lo provee
 }
 
 export interface FileValidation {
   valid: boolean;
   error?: string;
+}
+
+export interface UserWinItem {
+  lottery_id: number;
+  lottery_title: string;
+  winning_number: number;
+  won_at: string;
+  prize_description?: string;
+  lottery_image_url?: string;
+}
+
+export interface UserWinsResponse {
+  data: UserWinItem[];
 } 

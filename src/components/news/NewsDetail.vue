@@ -7,22 +7,23 @@
     <div v-else-if="error && !noticia" class="text-center py-10 text-red-500 dark:text-red-400">
       <p>Error al cargar la noticia: {{ error }}</p>
     </div>
-    <article v-else-if="noticia" class="news-detail bg-white dark:bg-gray-800 shadow-xl dark:shadow-gray-700/50 rounded-lg overflow-hidden max-w-4xl mx-auto transition-colors duration-300">
+    <article v-else-if="noticia" class="news-detail-card overflow-hidden max-w-4xl mx-auto transition-colors duration-300">
       <img v-if="noticia.image_url" :src="noticia.image_url" :alt="`Imagen de ${noticia.titulo}`" class="w-full h-auto object-cover max-h-[500px]">
       <div class="p-6 md:p-8">
-        <h1 class="text-3xl md:text-4xl font-bold mb-4 text-gray-800 dark:text-gray-100">{{ noticia.titulo }}</h1>
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-6">
-          <span class="mb-2 sm:mb-0">Por: <strong class="text-gray-700 dark:text-gray-200">{{ noticia.autor }}</strong></span>
+        <h1 class="news-title mb-4">{{ noticia.titulo }}</h1>
+        <div class="news-meta mb-6">
+          <span>Por: <strong class="author">{{ noticia.autor }}</strong></span>
+          <span class="separator" aria-hidden="true">•</span>
           <span>{{ formatDate(noticia.created_at) }}</span>
         </div>
-        <div class="prose prose-lg dark:prose-invert max-w-none mb-8 text-gray-700 dark:text-gray-300" v-html="displayDescription(noticia.descripcion)"></div>
+        <div class="news-content prose prose-lg dark:prose-invert max-w-none mb-8" v-html="displayDescription(noticia.descripcion)"></div>
         
         <div class="flex items-center mb-8">
           <button @click="handleLike" 
-                  class="mr-4 flex items-center py-2 px-4 rounded-md transition-colors duration-150 ease-in-out"
+                  class="btn-like mr-4 flex items-center py-2 px-4 rounded-md transition-colors duration-150 ease-in-out"
                   :class="{
-                    'bg-red-500 text-white hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700': likedLocally,
-                    'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600': !likedLocally
+                    'liked': likedLocally,
+                    'unliked': !likedLocally
                   }">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
               <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" />
@@ -34,8 +35,8 @@
         </div>
 
         <!-- Botón volver -->
-        <div class="border-t border-gray-200 dark:border-gray-700 pt-6 mb-6">
-          <button @click="goBack" class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-150">
+        <div class="border-t border-muted pt-6 mb-6">
+          <button @click="goBack" class="btn-ghost inline-flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
             </svg>
@@ -43,7 +44,7 @@
           </button>
         </div>
 
-        <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
+        <div class="border-t border-muted pt-6">
           <h3 class="text-2xl font-semibold mb-6 text-gray-800 dark:text-gray-100" id="comments">Comentarios ({{ commentsForThisNews.length }})</h3>
           <CommentSection :noticia-id="noticia.id" />
         </div>
@@ -88,26 +89,11 @@ const commentsForThisNews = computed<Comment[]>(() => newsStore.comments.filter(
 const feedItem = ref<any>(null);
 const likedLocally = computed(() => {
   const liked = feedItem.value?.is_liked || false;
-  console.log(`🎨 [NEWS DETAIL] likedLocally computed - feedItem exists: ${!!feedItem.value}, is_liked: ${feedItem.value?.is_liked}, result: ${liked}`);
-  
-  // Debug adicional para ver el objeto completo si hay problemas
-  if (feedItem.value && typeof feedItem.value.is_liked !== 'boolean') {
-    console.warn(`⚠️ [NEWS DETAIL] is_liked no es boolean:`, typeof feedItem.value.is_liked, feedItem.value.is_liked);
-  }
-  
   return liked;
 });
-const localLikesCount = computed(() => {
-  const count = feedItem.value?.likes_count || 0;
-  console.log(`🔢 [NEWS DETAIL] localLikesCount computed - count: ${count}`);
-  return count;
-});
+const localLikesCount = computed(() => feedItem.value?.likes_count || 0);
 
 function displayDescription(description: string): string {
-  // Aquí podrías implementar una lógica más sofisticada si el contenido es HTML o Markdown
-  // Por seguridad, si es HTML del usuario, necesitarías sanitizarlo.
-  // Si es Markdown, puedes usar una librería como 'marked'.
-  // Por ahora, reemplazamos saltos de línea por <br> para un formato simple.
   return description.replace(/\n/g, '<br />');
 }
 
@@ -117,84 +103,26 @@ async function fetchData() {
     newsStore.$patch({ error: 'ID de noticia inválido', currentNewsItem: null });
     return;
   }
-  
-  // Cargar la noticia básica
   await newsStore.fetchNoticia(numericId);
-  
   if (newsStore.currentNewsItem) {
-    console.log(`📊 [NEWS DETAIL] Noticia cargada - ID: ${numericId}`);
-    
-    // Buscar el item en el feed para obtener el estado real del like
     try {
       const foundFeedItem = await feedStore.getPostByOriginalId(1, numericId);
-      if (foundFeedItem) {
-        feedItem.value = foundFeedItem;
-        console.log(`✅ [NEWS DETAIL] Estado del like cargado - feedId: ${foundFeedItem.id}, isLiked: ${foundFeedItem.is_liked}, likes: ${foundFeedItem.likes_count}`);
-      } else {
-        console.log(`⚠️ [NEWS DETAIL] Noticia no encontrada en feed, creando estado por defecto`);
-        feedItem.value = {
-          id: null,
-          is_liked: false,
-          likes_count: newsStore.currentNewsItem.likes_count || 0
-        };
-      }
+      feedItem.value = foundFeedItem || { id: null, is_liked: false, likes_count: newsStore.currentNewsItem.likes_count || 0 };
     } catch (error) {
-      console.log(`❌ [NEWS DETAIL] Error al buscar en feed:`, error);
-      // Usar estado por defecto si hay error
-      feedItem.value = {
-        id: null,
-        is_liked: false,
-        likes_count: newsStore.currentNewsItem.likes_count || 0
-      };
+      feedItem.value = { id: null, is_liked: false, likes_count: newsStore.currentNewsItem.likes_count || 0 };
     }
   } else if (!newsStore.isLoading) {
-    // Si no está cargando y no hay noticia, es probable que no exista
     newsStore.$patch({ error: 'Noticia no encontrada.' });
   }
 }
 
 const handleLike = async () => {
-  console.log(`❤️ [NEWS DETAIL] Intentando like en noticia ID: ${noticia.value?.id}`);
-  
-  // Verificar autenticación y token válido
-  if (!isAuthenticated.value) {
-    console.log('❌ [NEWS DETAIL] Usuario no autenticado');
-    return;
-  }
-
-  if (!ensureValidToken()) {
-    console.log('❌ [NEWS DETAIL] Token inválido o expirado');
-    return;
-  }
-
-  if (!feedItem.value?.id) {
-    console.log(`❌ [NEWS DETAIL] No se encontró el item en el feed`);
-    return;
-  }
-
+  if (!isAuthenticated.value || !ensureValidToken()) return;
+  if (!feedItem.value?.id) return;
   try {
-    console.log(`🔄 [NEWS DETAIL] Dando like - Feed ID: ${feedItem.value.id}, Original ID: ${noticia.value!.id}`);
-    
-    // Usar toggleLike del feedStore
     const response = await feedStore.toggleLike(feedItem.value.id);
-    
-    // Actualizar el feedItem con la respuesta del servidor
-    feedItem.value = {
-      ...feedItem.value,
-      is_liked: response.liked,
-      likes_count: response.likes_count
-    };
-    
-    console.log(`✅ [NEWS DETAIL] Like procesado exitosamente: liked=${response.liked}, count=${response.likes_count}`);
-    
-  } catch (error: any) {
-    console.log(`❌ [NEWS DETAIL] Error al dar/quitar like:`, error);
-    
-    // Si el error es por token expirado, ya se manejó en el service
-    if (error.message?.includes('sesión ha expirado')) {
-      return; // Ya se manejó en el service
-    }
-  }
+    feedItem.value = { ...feedItem.value, is_liked: response.liked, likes_count: response.likes_count };
+  } catch {}
 };
 
 function formatDate(dateString: string): string {
@@ -206,51 +134,89 @@ function formatDate(dateString: string): string {
   }
 }
 
-// Observa cambios en el ID de la ruta y recarga los datos
 watch(() => props.id, fetchData, { immediate: true });
 
 onMounted(() => {
-  // El watcher con immediate:true ya llama a fetchData.
-  // Scroll a la sección de comentarios si está en el hash.
   if (route.hash === '#comments') {
-    // Usar nextTick o setTimeout para asegurar que el elemento existe
     setTimeout(() => {
       const commentsElement = document.getElementById('comments');
       commentsElement?.scrollIntoView({ behavior: 'smooth' });
-    }, 300); // Un pequeño delay
+    }, 300);
   }
 });
 
 const goBack = () => {
-  // Verificar si hay información de la pestaña en los query parameters
   const fromTab = route.query.from_tab as string;
-  
   if (fromTab && ['todo', 'noticias', 'comunidad'].includes(fromTab)) {
-    // Regresar con la pestaña preservada
-    console.log(`🔙 [NEWS DETAIL] Regresando al feed con pestaña: ${fromTab}`);
-    router.push({
-      path: '/',
-      query: { tab: fromTab }
-    });
+    router.push({ path: '/', query: { tab: fromTab } });
   } else {
-    // Regresar al feed sin pestaña específica (por defecto 'noticias' para noticias)
-    console.log(`🔙 [NEWS DETAIL] Regresando al feed con pestaña por defecto: noticias`);
-    router.push({
-      path: '/',
-      query: { tab: 'noticias' }
-    });
+    router.push({ path: '/', query: { tab: 'noticias' } });
   }
 };
-
 </script>
 
 <style scoped>
 .news-detail-container {
-  padding-top: 80px; /* Ajuste por header fijo. Debería ser una variable o prop si el header cambia de altura */
+  padding-top: 80px; /* Ajuste por header fijo. */
 }
-/* Estilos para .prose si Tailwind Typography no se aplica como se espera o necesitas overrides */
+
+/* Tarjeta principal con variables de tema */
+.news-detail-card {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+}
+html.dark .news-detail-card {
+  box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+}
+
+.news-title {
+  font-size: clamp(1.75rem, 2vw + 1rem, 2.5rem);
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.news-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+.news-meta .author { color: var(--text); }
+.news-meta .separator { opacity: 0.4; }
+
+.news-content {
+  color: var(--text);
+}
+.news-content :where(p) {
+  line-height: 1.8;
+  margin: 1em 0;
+}
+.news-content :where(a) { color: var(--accent); text-decoration: underline; }
+
+/* Botones */
+.btn-like.unliked { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+.btn-like.liked { background: #ef4444; color: #fff; }
+
+.btn-ghost {
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 8px 12px;
+  border-radius: 10px;
+}
+.btn-ghost:hover { background: var(--surface-2); border-color: var(--border); }
+
+/* Borde utilitario alineado con variables */
+.border-muted { border-color: var(--border); }
+
+/* Ajustes de tipografía si no aplica Typography plugin */
 .prose :where(p):where(:not([class~="not-prose"])):where(:not([class~="not-prose"] *)) {
-    margin-top: 1em;
-    margin-bottom: 1em;
+  margin-top: 1em;
+  margin-bottom: 1em;
 }
 </style>

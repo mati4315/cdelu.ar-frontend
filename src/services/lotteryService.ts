@@ -119,6 +119,11 @@ class LotteryService {
     return response.data
   }
 
+  async getUserWins(page = 1, limit = 20) {
+    const response = await lotteryApi.get(`${this.baseUrl}/user/wins?page=${page}&limit=${limit}`)
+    return response.data
+  }
+
   // Helper methods
   async getAvailableTicketNumbers(lotteryId: number): Promise<number[]> {
     try {

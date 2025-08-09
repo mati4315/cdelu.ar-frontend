@@ -82,6 +82,38 @@
                     Días activo
                   </div>
                 </div>
+                <div class="text-center">
+                  <div class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                    {{ communityPosts }}
+                  </div>
+                  <div class="text-xs text-gray-500 dark:text-gray-400">
+                    Publicaciones de comunidad
+                  </div>
+                </div>
+                <div class="text-center">
+                  <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                    {{ lotteryParticipations }}
+                  </div>
+                  <div class="text-xs text-gray-500 dark:text-gray-400">
+                    Participaciones en loterías
+                  </div>
+                </div>
+                <div class="text-center">
+                  <button 
+                    class="mx-auto inline-flex items-center gap-1 text-2xl font-bold text-yellow-600 dark:text-yellow-400 hover:opacity-90"
+                    :disabled="lotteryWins === 0"
+                    @click="openWinsModal"
+                    :title="lotteryWins > 0 ? 'Ver loterías ganadas' : 'Sin loterías ganadas'"
+                  >
+                    <span>{{ lotteryWins }}</span>
+                    <svg v-if="lotteryWins > 0" xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M8 21h8l1-7H7l1 7zm8-9V7h1V5H7v2h1v5H5l2 12h10l2-12h-3zM9 7h6v5H9V7z"/>
+                    </svg>
+                  </button>
+                  <div class="text-xs text-gray-500 dark:text-gray-400">
+                    Loterías ganadas
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -251,6 +283,43 @@
           </div>
         </div>
       </div>
+
+      <!-- Modal de loterías ganadas -->
+      <div v-if="showWinsModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full border border-gray-200 dark:border-gray-700">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Loterías ganadas</h3>
+            <button @click="closeWinsModal" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">✕</button>
+          </div>
+          <div class="p-4 max-h-[60vh] overflow-auto">
+            <div v-if="winsLoading" class="py-6 text-center text-gray-500">Cargando...</div>
+            <div v-else-if="winsError" class="py-6 text-center text-red-500">{{ winsError }}</div>
+            <div v-else>
+              <div v-if="userWins.length === 0" class="text-center text-gray-500">No hay registros</div>
+              <ul v-else class="space-y-3">
+                <li v-for="(win, idx) in userWins" :key="idx" class="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
+                  <div class="flex items-start gap-3">
+                    <img v-if="win.lottery_image_url" :src="win.lottery_image_url" alt="Imagen lotería" class="w-12 h-12 rounded object-cover border border-gray-200 dark:border-gray-700" />
+                    <div class="flex-1">
+                      <div class="flex justify-between items-center">
+                        <router-link :to="`/lotteries/${win.lottery_id}`" class="font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                          {{ win.lottery_title }}
+                        </router-link>
+                        <div class="text-yellow-600 dark:text-yellow-400 font-bold">#{{ win.winning_number }}</div>
+                      </div>
+                      <p v-if="win.prize_description" class="text-sm text-gray-700 dark:text-gray-300 mt-1">Premio: {{ win.prize_description }}</p>
+                      <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Fecha: {{ formatDate(win.won_at) }}</p>
+                    </div>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 text-right">
+            <button @click="closeWinsModal" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Cerrar</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -258,9 +327,10 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/store/auth';
-import { User } from '@/types/api';
+import { User, ProfileResponse } from '@/types/api';
 import ProfilePictureUpload from '@/components/ui/ProfilePictureUpload.vue';
 import profileService from '@/services/profileService';
+import { lotteryService } from '@/services/lotteryService'
 
 // Store
 const authStore = useAuthStore();
@@ -272,6 +342,13 @@ const isSaving = ref(false);
 const isRefreshing = ref(false);
 const error = ref<string | null>(null);
 const userProfile = ref<User | null>(null);
+const lotteryParticipations = ref<number>(0);
+const lotteryWins = ref<number>(0);
+const communityPosts = ref<number>(0);
+const showWinsModal = ref(false)
+const userWins = ref<Array<{ lottery_id: number; lottery_title: string; winning_number: number; won_at: string; prize_description?: string; lottery_image_url?: string }>>([])
+const winsLoading = ref(false)
+const winsError = ref<string | null>(null)
 
 // Formulario de edición
 const editForm = reactive({
@@ -289,9 +366,9 @@ interface Notification {
 const notifications = ref<Notification[]>([]);
 let notificationId = 0;
 
-// Estadísticas del usuario (simuladas por ahora)
+// Estadísticas del usuario (si el backend provee comments_count lo usamos)
 const userStats = computed(() => ({
-  commentsCount: 0, // TODO: Obtener del backend
+  commentsCount: userProfile.value?.comments_count ?? 0,
   joinedDays: userProfile.value?.created_at 
     ? Math.floor((Date.now() - new Date(userProfile.value.created_at).getTime()) / (1000 * 60 * 60 * 24))
     : 0
@@ -303,8 +380,13 @@ const loadProfile = async () => {
   error.value = null;
 
   try {
-    const response = await profileService.getMyProfile();
+    const response: ProfileResponse = await profileService.getMyProfile();
     userProfile.value = response.user;
+
+    // Guardar stats de lotería si vienen
+    lotteryParticipations.value = response.stats?.lottery_participations ?? 0;
+    lotteryWins.value = response.stats?.lottery_wins ?? 0;
+    communityPosts.value = response.stats?.community_posts_count ?? 0;
     
     // Actualizar formulario de edición
     editForm.nombre = response.user.nombre;
@@ -445,6 +527,38 @@ const getNotificationClass = (type: string) => {
       return 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400';
   }
 };
+
+function openWinsModal() {
+  if (lotteryWins.value === 0) return
+  showWinsModal.value = true
+  fetchUserWins()
+}
+
+function closeWinsModal() {
+  showWinsModal.value = false
+}
+
+async function fetchUserWins() {
+  try {
+    winsLoading.value = true
+    winsError.value = null
+    const resp = await lotteryService.getUserWins(1, 50)
+    // Normalizar estructura
+    const data = Array.isArray(resp?.data) ? resp.data : []
+    userWins.value = data.map((w: any) => ({
+      lottery_id: Number(w.lottery_id ?? w.id ?? 0),
+      lottery_title: w.lottery_title ?? w.title ?? `Lotería ${w.lottery_id}`,
+      winning_number: Number(w.winning_number ?? w.number ?? 0),
+      won_at: w.won_at ?? w.created_at ?? new Date().toISOString(),
+      prize_description: w.prize_description ?? undefined,
+      lottery_image_url: w.lottery_image_url ?? undefined
+    }))
+  } catch (e: any) {
+    winsError.value = e?.message || 'No se pudieron cargar las loterías ganadas'
+  } finally {
+    winsLoading.value = false
+  }
+}
 
 // Inicialización
 onMounted(async () => {
