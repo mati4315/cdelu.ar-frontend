@@ -117,9 +117,9 @@ async function getComentarios(noticiaId: number | string): Promise<Comment[]> {
   }
 }
 
-async function crearComentario(noticiaId: number | string, payload: CommentCreatePayload): Promise<{ id: number; message: string }> {
+async function crearComentario(noticiaId: number | string, payload: CommentCreatePayload): Promise<{ id: number; comments_count: number; message: string }> {
   try {
-    const response = await apiClient.post<{ id: number; message: string }>(`/news/${noticiaId}/comments`, payload);
+    const response = await apiClient.post<{ id: number; comments_count: number; message: string }>(`/news/${noticiaId}/comments`, payload);
     return response.data;
   } catch (error) {
     return handleApiError(error);

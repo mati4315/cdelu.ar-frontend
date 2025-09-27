@@ -99,7 +99,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { User } from '../../types/api';
-import profileService from '../../services/profileService';
+import { profileService } from '../../services/profileService';
 import { useAuthStore } from '../../store/auth';
 
 interface Props {

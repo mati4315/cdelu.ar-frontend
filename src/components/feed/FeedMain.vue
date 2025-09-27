@@ -1,46 +1,17 @@
 <template>
   <div class="feed-main">
-    <!-- Header con estadísticas (opcional) -->
-    <div v-if="showStats && stats" class="feed-header">
-      <div class="stats-container">
-        <div class="stat-card">
-          <span class="stat-icon">📊</span>
-          <div class="stat-info">
-            <span class="stat-number">{{ stats.total }}</span>
-            <span class="stat-label">Total de contenido</span>
-          </div>
-        </div>
-        
-        <div class="stat-card">
-          <span class="stat-icon">📰</span>
-          <div class="stat-info">
-            <span class="stat-number">{{ stats.by_type.news.count }}</span>
-            <span class="stat-label">Noticias</span>
-          </div>
-        </div>
-        
-        <div class="stat-card">
-          <span class="stat-icon">👥</span>
-          <div class="stat-info">
-            <span class="stat-number">{{ stats.by_type.community.count }}</span>
-            <span class="stat-label">Comunidad</span>
-          </div>
-        </div>
-        
-        <button 
-          @click="handleRefresh" 
-          class="refresh-btn"
-          :disabled="isLoading"
-          title="Actualizar contenido"
-        >
-          <span class="refresh-icon" :class="{ spinning: isLoading }">🔄</span>
-        </button>
-      </div>
-    </div>
+    <!-- feed-header eliminado -->
     
     <!-- Encuestas Activas -->
     <div class="container mx-auto px-4 py-4">
       <HomeActiveSurveys />
+      <!-- Reproductor en línea debajo de home-active-surveys (solo si está habilitado) -->
+      <template v-if="videoStore.shouldLoadVideo()">
+        <div class="container mx-auto px-4 py-4">
+          <InlineLivePlayer />
+          <InlineLiveComments />
+        </div>
+      </template>
     </div>
     
     <!-- Pestañas -->
@@ -173,6 +144,9 @@ import FeedItem from './FeedItem.vue';
 import FeedAdItem from './FeedAdItem.vue';
 import FeedLotteryAdItem from './FeedLotteryAdItem.vue';
 import HomeActiveSurveys from '../survey/HomeActiveSurveys.vue';
+import InlineLivePlayer from '../live/InlineLivePlayer.vue';
+import InlineLiveComments from '../live/InlineLiveComments.vue';
+import { useVideoStore } from '@/store/videoStore';
 import type { FeedMainProps, FeedItem as FeedItemType, FeedTab } from '@/types/feed';
 import type { Ad } from '@/types/ads';
 
@@ -181,7 +155,7 @@ interface Props extends FeedMainProps {}
 const props = withDefaults(defineProps<Props>(), {
   initialTab: 'todo',
   pageSize: 10,
-  showStats: true,
+  showStats: false,
   enableInfiniteScroll: true
 });
 
@@ -191,6 +165,7 @@ const route = useRoute();
 
 // Store y refs reactivos
 const feedStore = useFeedStore();
+const videoStore = useVideoStore();
 const { 
   currentTab, 
   currentContent, 
@@ -618,100 +593,16 @@ onMounted(async () => {
   max-width: 800px;
   margin: 0 auto;
   padding: 0 20px 20px 20px; /* Sin padding-top, solo lateral y bottom */
-  background: #f8f9fa;
+  background: var(--bg);
   min-height: 100vh;
 }
 
-/* Header con estadísticas */
-.feed-header {
-  margin-bottom: 20px;
-  padding: 20px;
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.stats-container {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.stat-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
-  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-  border-radius: 12px;
-  flex: 1;
-  min-width: 140px;
-  transition: transform 0.3s ease;
-}
-
-.stat-card:hover {
-  transform: translateY(-2px);
-}
-
-.stat-icon {
-  font-size: 24px;
-}
-
-.stat-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.stat-number {
-  font-size: 20px;
-  font-weight: 700;
-  color: #007bff;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: #6c757d;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.refresh-btn {
-  padding: 12px 16px;
-  background: #007bff;
-  color: white;
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
-  font-size: 16px;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.refresh-btn:hover:not(:disabled) {
-  background: #0056b3;
-  transform: translateY(-2px);
-}
-
-.refresh-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.refresh-icon {
-  font-size: 18px;
-  transition: transform 0.3s ease;
-}
-
-.refresh-icon.spinning {
-  animation: spin 1s linear infinite;
-}
+/* feed-header eliminado */
 
 /* Contenido del feed */
 .feed-content {
-  background: white;
+  background: var(--surface);
+  color: var(--text);
   border-radius: 0 0 16px 16px;
   overflow: hidden;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
@@ -968,46 +859,5 @@ onMounted(async () => {
   }
 }
 
-/* Dark mode */
-@media (prefers-color-scheme: dark) {
-  .feed-main {
-    background: #121212;
-  }
-  
-  .feed-header, .feed-content {
-    background: #1a1a1a;
-    color: #e0e0e0;
-  }
-  
-  .stat-card {
-    background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
-  }
-  
-  .stat-number {
-    color: #3182ce;
-  }
-  
-  .skeleton-type, .skeleton-meta, .skeleton-title, 
-  .skeleton-description, .skeleton-image, 
-  .skeleton-stats, .skeleton-actions {
-    background: #2a2a2a;
-  }
-  
-  .error-title {
-    color: #f56565;
-  }
-  
-  .empty-title {
-    color: #e0e0e0;
-  }
-  
-  .infinite-loading, .end-of-content {
-    color: #a0a0a0;
-  }
-  
-  .loading-spinner {
-    border-color: #2a2a2a;
-    border-top-color: #3182ce;
-  }
-}
+/* El modo oscuro se maneja con variables CSS; no usamos media queries del sistema */
 </style> 

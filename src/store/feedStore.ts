@@ -112,6 +112,73 @@ export const useFeedStore = defineStore('feed', {
   },
 
   actions: {
+    // Utilidades locales para cachear likes por usuario en localStorage
+    getCurrentUserId(): number | null {
+      try {
+        const raw = localStorage.getItem('user');
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return typeof parsed?.id === 'number' ? parsed.id : null;
+      } catch {
+        return null;
+      }
+    },
+
+    getLikesCacheKey(userId: number): string {
+      return `liked_feed_ids:${userId}`;
+    },
+
+    readLikedSet(): Set<number> {
+      const userId = this.getCurrentUserId();
+      if (!userId) return new Set<number>();
+      try {
+        const key = this.getLikesCacheKey(userId);
+        const raw = localStorage.getItem(key);
+        if (!raw) return new Set<number>();
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) {
+          return new Set<number>(arr.filter((x) => typeof x === 'number'));
+        }
+        return new Set<number>();
+      } catch {
+        return new Set<number>();
+      }
+    },
+
+    writeLikedSet(set: Set<number>): void {
+      const userId = this.getCurrentUserId();
+      if (!userId) return;
+      try {
+        const key = this.getLikesCacheKey(userId);
+        localStorage.setItem(key, JSON.stringify([...set]));
+      } catch {
+        // ignore
+      }
+    },
+
+    persistLiked(feedId: number, liked: boolean): void {
+      const likedSet = this.readLikedSet();
+      if (liked) {
+        likedSet.add(feedId);
+      } else {
+        likedSet.delete(feedId);
+      }
+      this.writeLikedSet(likedSet);
+    },
+
+    mergeLocalLikedInto(items: FeedItem[]): FeedItem[] {
+      const likedSet = this.readLikedSet();
+      if (likedSet.size === 0) return items;
+      return items.map((it) => {
+        if (it && (it.is_liked === undefined || it.is_liked === false)) {
+          if (likedSet.has(it.id)) {
+            it.is_liked = true;
+          }
+        }
+        return it;
+      });
+    },
+
     // Cargar contenido inicial o refresh
     async loadFeed(tab: FeedTab = 'todo', refresh = false) {
       console.log(`🔄 [FEED STORE] loadFeed called - tab: ${tab}, refresh: ${refresh}`);
@@ -145,10 +212,23 @@ export const useFeedStore = defineStore('feed', {
         console.log(`✅ [FEED STORE] Respuesta recibida para ${tab}:`, response);
 
         // Actualizar contenido
+        // Antes de setear, sincronizar 'is_liked' desde backend si está disponible
+        const items = response.data;
+        const feedIds = items.map(i => i.id);
+        let serverStatuses: Record<number, boolean> = {};
+        try {
+          serverStatuses = await feedService.getLikedStatuses(feedIds);
+        } catch { /* ignorar si no existe */ }
+
+        const enriched = items.map(item => ({
+          ...item,
+          is_liked: typeof serverStatuses[item.id] === 'boolean' ? serverStatuses[item.id] : item.is_liked
+        }));
+
         if (refresh) {
-          this.setContent(tab, response.data);
+          this.setContent(tab, enriched);
         } else {
-          this.appendContent(tab, response.data);
+          this.appendContent(tab, enriched);
         }
 
         // Actualizar paginación
@@ -253,43 +333,47 @@ export const useFeedStore = defineStore('feed', {
     setContent(tab: FeedTab, content: FeedItem[]) {
       // Limpiar IDs antes de establecer nuevo contenido
       this.itemIds[tab].clear();
+      // Fusionar estado local de likes (en caso de que el backend no lo devuelva)
+      const merged = this.mergeLocalLikedInto(content);
       
       switch (tab) {
         case 'todo': 
-          this.allContent = content;
+          this.allContent = merged;
           break;
         case 'noticias': 
-          this.newsContent = content;
+          this.newsContent = merged;
           break;
         case 'comunidad': 
-          this.communityContent = content;
+          this.communityContent = merged;
           break;
       }
       
       // Agregar IDs al set
-      content.forEach(item => this.itemIds[tab].add(item.id));
+      merged.forEach(item => this.itemIds[tab].add(item.id));
     },
 
     appendContent(tab: FeedTab, content: FeedItem[]) {
       // Filtrar duplicados antes de agregar
       const newItems = content.filter(item => !this.itemIds[tab].has(item.id));
+      // Fusionar likes locales
+      const mergedNewItems = this.mergeLocalLikedInto(newItems);
       
       switch (tab) {
         case 'todo': 
-          this.allContent.push(...newItems);
+          this.allContent.push(...mergedNewItems);
           break;
         case 'noticias': 
-          this.newsContent.push(...newItems);
+          this.newsContent.push(...mergedNewItems);
           break;
         case 'comunidad': 
-          this.communityContent.push(...newItems);
+          this.communityContent.push(...mergedNewItems);
           break;
       }
       
       // Agregar nuevos IDs al set
-      newItems.forEach(item => this.itemIds[tab].add(item.id));
+      mergedNewItems.forEach(item => this.itemIds[tab].add(item.id));
       
-      console.log(`📝 [FEED STORE] Se agregaron ${newItems.length} nuevos items a ${tab} (${content.length - newItems.length} duplicados omitidos)`);
+      console.log(`📝 [FEED STORE] Se agregaron ${mergedNewItems.length} nuevos items a ${tab} (${content.length - mergedNewItems.length} duplicados omitidos)`);
     },
 
     updatePagination(tab: FeedTab, pagination: any) {
@@ -368,6 +452,7 @@ export const useFeedStore = defineStore('feed', {
           // Actualizar estado de like del usuario si se proporciona
           if (typeof isLiked === 'boolean') {
             item.is_liked = isLiked;
+            this.persistLiked(itemId, isLiked);
           }
           
           console.log(`✅ [FEED STORE] Updated likes for item ${itemId}: ${newLikesCount} (isLiked: ${item.is_liked})`);
@@ -410,6 +495,8 @@ export const useFeedStore = defineStore('feed', {
         
         // Actualizar el item en el store con el estado completo
         this.updateItemLike(feedId, response.likes_count || 0, response.liked);
+        // Persistir en cache local por usuario
+        this.persistLiked(feedId, !!response.liked);
         
         // Mostrar notificación de éxito
         const message = response.message || (response.liked ? 'Like agregado' : 'Like removido');
@@ -429,6 +516,7 @@ export const useFeedStore = defineStore('feed', {
           
           // Si el error indica que el like ya existía, actualizar UI como si se hubiera quitado
           this.updateItemLike(feedId, 0, false); // Asumir que se quitó el like
+          this.persistLiked(feedId, false);
           globalNotifications.info('Like actualizado');
           return { liked: false, likes_count: 0, message: 'Like actualizado' };
         }
@@ -481,7 +569,15 @@ export const useFeedStore = defineStore('feed', {
       try {
         const response = await feedService.getPostByOriginalId(type, originalId);
         console.log(`🔍 [FEED STORE] getPostByOriginalId response:`, response);
-        console.log(`🔍 [FEED STORE] is_liked field specifically:`, response.is_liked, typeof response.is_liked);
+        // Enriquecer con estado de like del backend (nuevo endpoint)
+        try {
+          const statuses = await feedService.getLikedStatuses([response.id]);
+          if (typeof statuses[response.id] === 'boolean') {
+            response.is_liked = statuses[response.id];
+          }
+        } catch {
+          // ignorar si no existe el endpoint
+        }
         return response;
       } catch (error) {
         console.error('❌ [FEED STORE] Error in getPostByOriginalId:', error);

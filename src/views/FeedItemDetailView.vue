@@ -27,11 +27,13 @@
       </div>
 
       <!-- Imagen principal (si existe) -->
-      <img v-if="imageUrl && !imageError" 
-           :src="imageUrl" 
-           :alt="`Imagen de ${item.titulo}`" 
-           class="w-full h-auto object-cover max-h-[500px]"
-           @error="handleImageError">
+      <div v-if="imageUrl && !imageError">
+        <img 
+             :src="imageUrl" 
+             :alt="`Imagen de ${item.titulo}`" 
+             class="w-full h-auto object-cover max-h-[500px]"
+             @error="handleImageError">
+      </div>
       
       <div class="p-6 md:p-8">
         <!-- Título -->
@@ -81,8 +83,15 @@
           </button>
         </div>
 
+        <!-- Sección de comentarios -->
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-6 mt-8">
+          <FeedCommentSection 
+            :feed-id="item.id" 
+          />
+        </div>
+
         <!-- Botón volver -->
-        <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
           <button @click="goBack" class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-150">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
@@ -104,6 +113,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useFeedStore } from '@/store/feedStore';
 import { useAuth } from '@/composables/useAuth';
 import { useTokenValidation } from '@/composables/useTokenValidation';
+import FeedCommentSection from '@/components/feed/FeedCommentSection.vue';
 import type { FeedItem } from '@/types/feed';
 
 // Props
@@ -134,6 +144,10 @@ const typeLabel = computed(() => {
 const typeClass = computed(() => {
   const itemType = item.value?.type || parseInt(props.type || '1');
   return itemType === 1 ? 'type-news' : 'type-community';
+});
+
+const typeValue = computed(() => {
+  return item.value?.type || parseInt(props.type || '1');
 });
 
 const isLiked = computed(() => item.value?.is_liked || false);

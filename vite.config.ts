@@ -74,6 +74,24 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  // Configuración del servidor de desarrollo
+  server: {
+    port: 5173,
+    proxy: {
+      // Proxy para la API
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false
+      },
+      // Proxy para archivos estáticos (SOLUCIÓN TEMPORAL PARA IMÁGENES)
+      '/public': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false
+      }
+    }
+  },
   // Configuración para hosting cPanel
   base: './', // Usar rutas relativas
   build: {

@@ -63,6 +63,9 @@ export interface FeedItem {
   /** Nombre del usuario creador */
   user_name?: string;
   
+  /** URL de foto de perfil del usuario creador */
+  user_profile_picture?: string;
+  
   /** Fecha de publicación */
   published_at?: string;
   

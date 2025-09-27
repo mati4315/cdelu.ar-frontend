@@ -18,20 +18,20 @@
         </div>
         <div class="news-content prose prose-lg dark:prose-invert max-w-none mb-8" v-html="displayDescription(noticia.descripcion)"></div>
         
-        <div class="flex items-center mb-8">
-          <button @click="handleLike" 
-                  class="btn-like mr-4 flex items-center py-2 px-4 rounded-md transition-colors duration-150 ease-in-out"
-                  :class="{
-                    'liked': likedLocally,
-                    'unliked': !likedLocally
-                  }">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" />
-            </svg>
-            <span class="font-medium">
-              {{ localLikesCount }} {{ localLikesCount === 1 ? 'Me gusta' : 'Me gustas' }}
-            </span>
-          </button>
+        <div class="detail-actions">
+          <div class="item-actions">
+            <button @click="handleLike" 
+                    class="action-btn like-btn"
+                    :class="{ active: likedLocally }"
+                    :title="likedLocally ? 'Quitar me gusta' : 'Me gusta'">
+              <span class="like-btn-content">
+                <span class="like-icon">{{ likedLocally ? '💚' : '🤍' }}</span>
+                <span class="like-count">{{ localLikesCount }}</span>
+              </span>
+            </button>
+            <button @click="scrollToComments" class="action-btn comment-btn" title="Ver comentarios">💬</button>
+            <button @click="shareDetail" class="action-btn share-btn" title="Compartir">🔗</button>
+          </div>
         </div>
 
         <!-- Botón volver -->
@@ -45,7 +45,7 @@
         </div>
 
         <div class="border-t border-muted pt-6">
-          <h3 class="text-2xl font-semibold mb-6 text-gray-800 dark:text-gray-100" id="comments">Comentarios ({{ commentsForThisNews.length }})</h3>
+          <h3 class="text-2xl font-semibold mb-6 text-gray-800 dark:text-gray-100" id="comments-section">Comentarios ({{ commentsForThisNews.length }})</h3>
           <CommentSection :noticia-id="noticia.id" />
         </div>
       </div>
@@ -134,6 +134,21 @@ function formatDate(dateString: string): string {
   }
 }
 
+function scrollToComments() {
+  const el = document.getElementById('comments');
+  el?.scrollIntoView({ behavior: 'smooth' });
+}
+
+async function shareDetail() {
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: noticia.value?.titulo || 'Noticia', url: window.location.href });
+    } else {
+      await navigator.clipboard.writeText(window.location.href);
+    }
+  } catch {}
+}
+
 watch(() => props.id, fetchData, { immediate: true });
 
 onMounted(() => {
@@ -166,11 +181,9 @@ const goBack = () => {
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+  box-shadow: none; /* sin sombra en detalle */
 }
-html.dark .news-detail-card {
-  box-shadow: 0 16px 40px rgba(0,0,0,0.35);
-}
+html.dark .news-detail-card { box-shadow: none; }
 
 .news-title {
   font-size: clamp(1.75rem, 2vw + 1rem, 2.5rem);
@@ -201,6 +214,73 @@ html.dark .news-detail-card {
 /* Botones */
 .btn-like.unliked { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
 .btn-like.liked { background: #ef4444; color: #fff; }
+
+/* Acciones estilo feed */
+.detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 2rem;
+}
+
+.item-actions {
+  display: flex;
+  gap: 10px;
+  padding: 6px;
+  border-radius: 16px;
+  background: transparent;
+}
+
+.action-btn {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  border-radius: 22px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+}
+
+.action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+.like-btn .like-btn-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.like-btn .like-count {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.like-btn:hover, .like-btn.active {
+  background: var(--success);
+  border-color: var(--success);
+  color: #ffffff;
+}
+
+.comment-btn:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.share-btn:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
 
 .btn-ghost {
   color: var(--accent);

@@ -45,8 +45,15 @@ export const adsService = {
    * Obtener anuncios activos (público)
    */
   async getActiveAds(): Promise<ActiveAdsResponse> {
-    const response = await adsApi.get('/api/v1/ads/active');
-    return response.data;
+    try {
+      const response = await adsApi.get('/api/v1/ads/active');
+      return response.data;
+    } catch (error: any) {
+      if (error?.response?.status === 429) {
+        throw new Error('Ha excedido el límite de solicitudes. Intente nuevamente más tarde.');
+      }
+      throw error;
+    }
   },
 
   /**
@@ -114,8 +121,15 @@ export const adsService = {
    * Obtener feed con anuncios mezclados (público)
    */
   async getFeedWithAds(params?: { page?: number; limit?: number; includeAds?: boolean }) {
-    const response = await adsApi.get('/api/v1/feed', { params });
-    return response.data;
+    try {
+      const response = await adsApi.get('/api/v1/feed', { params });
+      return response.data;
+    } catch (error: any) {
+      if (error?.response?.status === 429) {
+        throw new Error('Ha excedido el límite de solicitudes. Intente nuevamente más tarde.');
+      }
+      throw error;
+    }
   },
 
   /**

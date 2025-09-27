@@ -1,7 +1,8 @@
 <template>
   <header 
     ref="headerRef" 
-    class="fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-in-out backdrop-blur-lg bg-white/80 dark:bg-gray-900/80 border-b border-gray-200/20 dark:border-gray-700/20"
+    class="fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-in-out border-b"
+    :style="{ backgroundColor: 'var(--nav)', color: 'var(--on-nav)', borderColor: 'var(--nav-border)' }"
     :class="{ 
       '-translate-y-full': (!isHeaderVisible && !isAtTop) || isFeedTabsSticky, 
       'shadow-lg backdrop-blur-xl bg-white/90 dark:bg-gray-900/90': !isAtTop,
@@ -12,25 +13,65 @@
       <div class="flex justify-between items-center h-full w-full">
         <!-- Izquierda: Menú y Controles -->
         <div class="flex items-center space-x-4 min-w-0 flex-1">
-          <!-- Botón de menú -->
-          <button 
-            @click="toggleMenu" 
-            class="group relative p-2 rounded-lg transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            aria-label="Abrir menú"
-          >
-            <div class="relative w-6 h-6">
-              <span class="absolute inset-0 flex items-center justify-center transition-transform duration-200 group-hover:scale-110">
-                <svg class="w-6 h-6 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-                </svg>
-              </span>
-            </div>
-          </button>
+          <!-- Botón de menú principal -->
+          <div class="relative" ref="mainMenuRef">
+            <button 
+              @click="toggleMenu" 
+              class="group relative p-2 rounded-lg transition-all duration-200 focus:outline-none"
+              aria-label="Abrir menú"
+            >
+              <div class="relative w-6 h-6">
+                <span class="absolute inset-0 flex items-center justify-center transition-transform duration-200 group-hover:scale-110">
+                  <svg class="w-6 h-6" :style="{ color: 'var(--on-nav)' }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                  </svg>
+                </span>
+              </div>
+            </button>
+
+            <!-- Dropdown del menú principal -->
+            <transition
+              enter-active-class="transition ease-out duration-200"
+              enter-from-class="transform opacity-0 scale-95"
+              enter-to-class="transform opacity-100 scale-100"
+              leave-active-class="transition ease-in duration-150"
+              leave-from-class="transform opacity-100 scale-100"
+              leave-to-class="transform opacity-0 scale-95"
+            >
+              <div v-if="isMainMenuOpen" class="absolute left-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50">
+                <!-- Crear nueva publicación -->
+                <router-link 
+                  v-if="authStore.isAuthenticated"
+                  to="/comunicaciones/crear" 
+                  @click="closeMainMenu"
+                  class="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 transition-colors group"
+                >
+                  <div class="flex items-center justify-center w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg mr-3 group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 transition-colors">
+                    <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                  </div>
+                  <div>
+                    <p class="font-medium">Crear Publicación</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Comparte con la comunidad</p>
+                  </div>
+                </router-link>
+
+                <!-- Divider si hay más opciones futuras -->
+                <div class="border-t border-gray-200 dark:border-gray-700 my-2"></div>
+
+                <!-- Placeholder para futuras opciones -->
+                <div class="px-4 py-2">
+                  <p class="text-xs text-gray-500 dark:text-gray-400 text-center">Más opciones próximamente</p>
+                </div>
+              </div>
+            </transition>
+          </div>
 
           <!-- Selector de tema -->
           <button 
             @click="toggleTheme" 
-            class="group relative p-2 rounded-lg transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="group relative p-2 rounded-lg transition-all duration-200 focus:outline-none"
             aria-label="Cambiar tema"
           >
             <div class="relative w-6 h-6">
@@ -50,7 +91,7 @@
         <div class="flex items-center justify-center space-x-3 min-w-0 flex-1">
           <router-link 
             to="/"
-            class="group flex items-center space-x-3 transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg p-2"
+            class="group flex items-center space-x-3 transition-all duration-300 hover:scale-105 focus:outline-none rounded-lg p-2"
           >
             <!-- Logo -->
             <div class="relative overflow-hidden rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 p-2 shadow-lg transition-all duration-300 group-hover:shadow-xl group-hover:from-blue-600 group-hover:to-purple-700">
@@ -63,10 +104,10 @@
             
             <!-- Título -->
             <div class="hidden sm:block">
-              <h1 class="text-xl lg:text-2xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 dark:from-white dark:via-blue-200 dark:to-purple-200 bg-clip-text text-transparent transition-all duration-300" :class="{ 'text-lg lg:text-xl': !isAtTop }">
+              <h1 class="text-xl lg:text-2xl font-bold transition-all duration-300" :style="{ color: 'var(--on-nav)' }" :class="{ 'text-lg lg:text-xl': !isAtTop }">
                 Diario CdelU
               </h1>
-              <p class="text-xs text-gray-600 dark:text-gray-400 font-medium tracking-wide">
+              <p class="text-xs font-medium tracking-wide" :style="{ color: 'var(--on-nav)' }">
                 NOTICIAS LOCALES
               </p>
             </div>
@@ -80,8 +121,7 @@
             <div class="relative" ref="userMenuRef">
               <button 
                 @click="toggleUserMenu"
-                class="group flex items-center space-x-2 p-2 rounded-lg transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                :class="{ 'bg-gray-100 dark:bg-gray-800': isUserMenuOpen }"
+                class="group flex items-center space-x-2 p-2 rounded-lg transition-all duration-200 focus:outline-none"
               >
                 <!-- Avatar -->
                 <div class="relative">
@@ -96,17 +136,17 @@
                 </div>
                 
                 <!-- Nombre (oculto en móvil) -->
-                <div class="hidden md:block text-left">
-                  <p class="text-sm font-medium text-gray-900 dark:text-white truncate max-w-24">
+                <div class="hidden md:block text-left" :style="{ color: 'var(--on-nav)' }">
+                  <p class="text-sm font-medium truncate max-w-24">
                     {{ authStore.user.nombre }}
                   </p>
-                  <p class="text-xs text-gray-500 dark:text-gray-400 capitalize">
+                  <p class="text-xs opacity-90 capitalize">
                     {{ authStore.user.rol }}
                   </p>
                 </div>
 
                 <!-- Chevron -->
-                <svg class="w-4 h-4 text-gray-500 transition-transform duration-200" :class="{ 'rotate-180': isUserMenuOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4 transition-transform duration-200" :style="{ color: 'var(--on-nav)' }" :class="{ 'rotate-180': isUserMenuOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
               </button>
@@ -187,6 +227,32 @@
                     Administrar Sorteos
                   </router-link>
 
+                  <!-- Control de Video Online (Solo Administradores) -->
+                  <div v-if="authStore.user?.rol === 'administrador'" class="px-4 py-2 border-t border-gray-200 dark:border-gray-700">
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center">
+                        <svg class="w-4 h-4 mr-3 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                        <span class="text-sm text-gray-700 dark:text-gray-300">Video Online</span>
+                      </div>
+                      <button
+                        @click="toggleVideoSetting"
+                        :disabled="videoStore.isLoading"
+                        class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+                        :class="videoStore.isVideoEnabled ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'"
+                      >
+                        <span
+                          class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+                          :class="videoStore.isVideoEnabled ? 'translate-x-6' : 'translate-x-1'"
+                        />
+                      </button>
+                    </div>
+                    <p v-if="videoStore.lastModified" class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {{ videoStore.isVideoEnabled ? 'Activado' : 'Desactivado' }} por {{ videoStore.modifiedBy }}
+                    </p>
+                  </div>
+
                   <div class="border-t border-gray-200 dark:border-gray-700 my-2"></div>
 
                   <button 
@@ -237,18 +303,22 @@ import { useThemeStore } from '@/store/theme';
 import { useRouter } from 'vue-router';
 import UserAvatar from '@/components/ui/UserAvatar.vue';
 import { useFeedStore } from '@/store/feedStore';
+import { useVideoStore } from '@/store/videoStore';
 
 const headerRef = ref<HTMLElement | null>(null);
 const userMenuRef = ref<HTMLElement | null>(null);
+const mainMenuRef = ref<HTMLElement | null>(null);
 const isHeaderVisible = ref(true);
 const isAtTop = ref(true);
 const isUserMenuOpen = ref(false);
+const isMainMenuOpen = ref(false);
 let lastScrollY = 0;
 
 const authStore = useAuthStore();
 const themeStore = useThemeStore();
 const router = useRouter();
 const feedStore = useFeedStore();
+const videoStore = useVideoStore();
 
 // Usar nuestro store de tema personalizado
 const { isDark, toggleTheme } = themeStore;
@@ -291,8 +361,11 @@ const handleLogout = () => {
 };
 
 const toggleMenu = () => {
-  console.log('Toggle menu clicked');
-  // Implementar lógica de menú lateral aquí
+  isMainMenuOpen.value = !isMainMenuOpen.value;
+};
+
+const closeMainMenu = () => {
+  isMainMenuOpen.value = false;
 };
 
 const toggleUserMenu = () => {
@@ -303,10 +376,27 @@ const closeUserMenu = () => {
   isUserMenuOpen.value = false;
 };
 
-// Cerrar menú al hacer click fuera
+const toggleVideoSetting = async () => {
+  if (!authStore.user || authStore.user.rol !== 'administrador') {
+    return;
+  }
+  
+  const newState = !videoStore.isVideoEnabled;
+  const adminName = authStore.user.nombre || 'Administrador';
+  
+  await videoStore.toggleVideoEnabled(newState, adminName);
+};
+
+// Cerrar menús al hacer click fuera
 onClickOutside(userMenuRef, () => {
   if (isUserMenuOpen.value) {
     closeUserMenu();
+  }
+});
+
+onClickOutside(mainMenuRef, () => {
+  if (isMainMenuOpen.value) {
+    closeMainMenu();
   }
 });
 
@@ -314,6 +404,11 @@ onMounted(() => {
   window.addEventListener('scroll', handleScroll, { passive: true });
   lastScrollY = window.scrollY;
   isAtTop.value = lastScrollY < 50;
+  
+  // Inicializar configuración de video si es administrador
+  if (authStore.user?.rol === 'administrador') {
+    videoStore.initializeVideoStore();
+  }
 });
 
 onUnmounted(() => {
@@ -334,6 +429,9 @@ header {
   left: 0;
   right: 0;
   width: 100%;
+  background-color: var(--nav);
+  color: var(--on-nav);
+  border-bottom: 1px solid var(--nav-border);
 }
 
 /* Transiciones para el cambio de tema */
@@ -392,7 +490,7 @@ header {
 /* Focus improvements for accessibility */
 button:focus,
 a:focus {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 </style> 

@@ -154,12 +154,44 @@
 
         <!-- Contenido principal -->
         <div class="lg:col-span-2">
-          <!-- Información del perfil -->
-          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+          <!-- Navegación interna -->
+          <div class="mb-6">
+            <nav class="flex space-x-8 border-b border-gray-200 dark:border-gray-700">
+              <button
+                @click="scrollToSection('profile-info')"
+                :class="[
+                  'py-2 px-1 border-b-2 font-medium text-sm transition-colors',
+                  activeSection === 'profile-info' 
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400' 
+                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 hover:border-blue-500'
+                ]"
+              >
+                Información del Perfil
+              </button>
+              <button
+                @click="scrollToSection('my-posts')"
+                :class="[
+                  'py-2 px-1 border-b-2 font-medium text-sm transition-colors',
+                  activeSection === 'my-posts' 
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400' 
+                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 hover:border-blue-500'
+                ]"
+              >
+                Mis Publicaciones
+                <span v-if="communityPosts > 0" class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+                  {{ communityPosts }}
+                </span>
+              </button>
+            </nav>
+          </div>
+
+          <div class="space-y-8">
+            <!-- Sección: Información del perfil -->
+            <div id="profile-info" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <div class="flex justify-between items-center mb-6">
-              <h3 class="text-lg font-medium text-gray-900 dark:text-white">
-                Información del perfil
-              </h3>
+              <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+                Información del Perfil
+              </h2>
               <button 
                 @click="toggleEditMode"
                 class="px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
@@ -245,6 +277,21 @@
             </div>
           </div>
 
+            <!-- Sección: Mis Publicaciones -->
+            <div id="my-posts" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <div class="flex justify-between items-center mb-6">
+              <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+                Mis Publicaciones
+                <span v-if="communityPosts > 0" class="ml-3 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+                  {{ communityPosts }}
+                </span>
+              </h2>
+            </div>
+            
+            <UserPostsTab />
+            </div>
+          </div>
+
           <!-- Mensajes de notificación -->
           <div v-if="notifications.length > 0" class="space-y-4">
             <TransitionGroup name="notification" tag="div">
@@ -325,11 +372,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 import { useAuthStore } from '@/store/auth';
 import { User, ProfileResponse } from '@/types/api';
 import ProfilePictureUpload from '@/components/ui/ProfilePictureUpload.vue';
-import profileService from '@/services/profileService';
+import UserPostsTab from '@/components/profile/UserPostsTab.vue';
+import { profileService } from '@/services/profileService';
 import { lotteryService } from '@/services/lotteryService'
 
 // Store
@@ -349,6 +397,7 @@ const showWinsModal = ref(false)
 const userWins = ref<Array<{ lottery_id: number; lottery_title: string; winning_number: number; won_at: string; prize_description?: string; lottery_image_url?: string }>>([])
 const winsLoading = ref(false)
 const winsError = ref<string | null>(null)
+const activeSection = ref<string>('profile-info')
 
 // Formulario de edición
 const editForm = reactive({
@@ -560,6 +609,42 @@ async function fetchUserWins() {
   }
 }
 
+// Función para scroll suave a secciones
+const scrollToSection = (sectionId: string) => {
+  const element = document.getElementById(sectionId);
+  if (element) {
+    // Actualizar manualmente la sección activa
+    activeSection.value = sectionId;
+    
+    // Scroll suave con offset para no cubrir el elemento con el header
+    const offsetTop = element.offsetTop - 80; // 80px de offset desde arriba
+    window.scrollTo({
+      top: offsetTop,
+      behavior: 'smooth'
+    });
+  }
+};
+
+// Función para detectar cuál sección está visible
+const updateActiveSection = () => {
+  const sections = ['profile-info', 'my-posts'];
+  const scrollPosition = window.scrollY + 120; // offset para considerar visible
+  
+  for (const sectionId of sections) {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      const rect = element.getBoundingClientRect();
+      const elementTop = element.offsetTop;
+      const elementBottom = elementTop + element.offsetHeight;
+      
+      if (scrollPosition >= elementTop && scrollPosition < elementBottom) {
+        activeSection.value = sectionId;
+        break;
+      }
+    }
+  }
+};
+
 // Inicialización
 onMounted(async () => {
   // Si el usuario está en el store, usarlo como inicial
@@ -571,6 +656,19 @@ onMounted(async () => {
   
   // Cargar datos actualizados del servidor
   await loadProfile();
+  
+  // Agregar listener para detectar sección visible
+  window.addEventListener('scroll', updateActiveSection);
+  
+  // Detectar sección inicial
+  setTimeout(() => {
+    updateActiveSection();
+  }, 100);
+});
+
+// Cleanup al desmontar
+onUnmounted(() => {
+  window.removeEventListener('scroll', updateActiveSection);
 });
 </script>
 

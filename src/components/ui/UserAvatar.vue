@@ -20,7 +20,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { User } from '../../types/api';
-import profileService from '../../services/profileService';
+import { profileService } from '../../services/profileService';
 
 interface Props {
   user?: User | null;

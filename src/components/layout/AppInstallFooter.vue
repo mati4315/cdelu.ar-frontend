@@ -1,7 +1,8 @@
 <template>
   <footer 
     v-if="showFooter && canInstallPWA"
-    class="fixed bottom-0 left-0 right-0 bg-blue-600 dark:bg-blue-700 text-white p-4 shadow-lg transition-transform duration-500 ease-in-out z-40"
+    class="fixed bottom-0 left-0 right-0 text-white p-4 shadow-lg transition-transform duration-500 ease-in-out z-40"
+    :style="{ backgroundColor: 'var(--accent)' }"
     :class="{ 'translate-y-full': !isVisible, 'translate-y-0': isVisible }"
   >
     <div class="container mx-auto flex flex-col sm:flex-row justify-between items-center text-center sm:text-left">

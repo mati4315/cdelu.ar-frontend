@@ -139,8 +139,8 @@ async function handleLike() {
     
     console.log(`🔄 [NEWS ITEM] Noticia encontrada en feed - Feed ID: ${feedItem.id}, Original ID: ${feedItem.original_id}`);
 
-    // Usar el método unificado del feedStore
-    const response = await feedStore.toggleLike(feedItem);
+    // Usar el método unificado del feedStore con el feedId
+    const response = await feedStore.toggleLike(feedItem.id);
     
     // Actualizar estado local basado en respuesta
     if (response && typeof response.likes_count === 'number') {

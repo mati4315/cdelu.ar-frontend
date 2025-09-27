@@ -123,4 +123,129 @@ export interface UserWinItem {
 
 export interface UserWinsResponse {
   data: UserWinItem[];
+}
+
+// 📝 Tipos para posts de usuario (nuevos endpoints de perfil)
+export interface UserPost {
+  id: number;
+  titulo: string;
+  descripcion: string;
+  image_url: string | null;        // Primera imagen
+  image_urls: string[];            // Todas las imágenes
+  video_url: string | null;        // URL del video
+  created_at: string;
+  updated_at: string;
+  // Campos adicionales que puede incluir el backend
+  likes_count?: number;
+  comments_count?: number;
+  autor?: string;                  // Nombre del autor
+  user_id?: number;               // ID del usuario autor
+}
+
+export interface UserPostsResponse {
+  data: UserPost[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+export interface UserPostUpdatePayload {
+  titulo?: string;
+  descripcion?: string;
+}
+
+export interface UserPostMediaUpdatePayload {
+  image?: File[];                  // Nuevas imágenes a agregar
+  video?: File;                   // Nuevo video
+  remove_video?: boolean;         // Eliminar video actual
+  remove_images?: string[];       // Nombres de imágenes a eliminar
+}
+
+export interface CommunityPostCreatePayload {
+  titulo: string;
+  descripcion: string;
+  images?: File[];               // Imágenes opcionales
+  video?: File;                  // Video opcional
+}
+
+// 👥 Tipos para sistema de seguimiento y perfiles públicos
+export interface PublicUser {
+  id: number;
+  nombre: string;
+  username?: string;             // Nombre de usuario único para URLs
+  profile_picture_url?: string | null;
+  created_at?: string;
+  // Información pública del perfil
+  bio?: string;                  // Biografía del usuario
+  location?: string;             // Ubicación del usuario
+  website?: string;              // Sitio web del usuario
+}
+
+export interface FollowStats {
+  followers_count: number;       // Número de seguidores
+  following_count: number;       // Número de usuarios que sigue
+  posts_count: number;          // Número de posts públicos
+}
+
+export interface PublicProfileResponse {
+  user: PublicUser;
+  stats: FollowStats;
+  is_following?: boolean;        // Si el usuario actual lo sigue (solo si está autenticado)
+  is_own_profile?: boolean;      // Si es el perfil del usuario actual
+}
+
+export interface FollowUser {
+  id: number;
+  nombre: string;
+  username?: string;
+  profile_picture_url?: string | null;
+  followed_at?: string;          // Cuándo empezó a seguir (para followers)
+  bio?: string;
+}
+
+export interface FollowersResponse {
+  data: FollowUser[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+export interface FollowingResponse {
+  data: FollowUser[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+export interface FollowActionResponse {
+  success: boolean;
+  message: string;
+  is_following: boolean;         // Estado actual después de la acción
+  followers_count: number;      // Nuevo número de seguidores
+}
+
+// Payload para buscar usuarios
+export interface UserSearchQuery {
+  query?: string;               // Término de búsqueda
+  page?: number;
+  limit?: number;
+}
+
+export interface UserSearchResponse {
+  data: PublicUser[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
 } 

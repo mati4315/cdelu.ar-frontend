@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue';
 import { useAuthStore } from '@/store/auth';
-import profileService from '@/services/profileService';
+import { profileService } from '@/services/profileService';
 import { useNotifications } from './useNotifications';
 
 export function useProfilePicture() {

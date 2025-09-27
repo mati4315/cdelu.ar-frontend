@@ -116,6 +116,9 @@ class FeedService {
         case 409:
           errorMessage = data?.message || 'Conflicto en la operación';
           break;
+        case 429:
+          errorMessage = 'Ha excedido el límite de solicitudes. Intente nuevamente más tarde.';
+          break;
         case 500:
           errorMessage = 'Error interno del servidor';
           break;
@@ -349,6 +352,44 @@ class FeedService {
     } catch (error) {
       console.error('❌ [FEED SERVICE] Error in createComment:', error);
       throw error;
+    }
+  }
+
+  // ❤️ Obtener estado de likes para una lista de feedIds (requiere backend)
+  async getLikedStatuses(feedIds: number[]): Promise<Record<number, boolean>> {
+    if (!Array.isArray(feedIds) || feedIds.length === 0) return {};
+    try {
+      const idsParam = feedIds.join(',');
+      const response = await this.apiClient.get<{ statuses?: Record<number, boolean>; likedIds?: number[] }>(`/feed/likes/status`, {
+        params: { ids: idsParam }
+      });
+      const data = response.data || {};
+      if (data.statuses && typeof data.statuses === 'object') {
+        return data.statuses;
+      }
+      if (Array.isArray(data.likedIds)) {
+        const set = new Set<number>(data.likedIds);
+        const map: Record<number, boolean> = {};
+        for (const id of feedIds) map[id] = set.has(id);
+        return map;
+      }
+      // Si la respuesta no trae estructura esperada, devolver vacío
+      return {};
+    } catch (error: any) {
+      // Fallback: intentar endpoint alternativo que devuelve todos los IDs con like del usuario
+      if (error.response?.status === 404) {
+        try {
+          const alt = await this.apiClient.get<{ likedIds: number[] }>(`/feed/likes/my`);
+          const likedIds = Array.isArray(alt.data?.likedIds) ? alt.data.likedIds : [];
+          const set = new Set<number>(likedIds);
+          const map: Record<number, boolean> = {};
+          for (const id of feedIds) map[id] = set.has(id);
+          return map;
+        } catch {
+          return {};
+        }
+      }
+      return {};
     }
   }
 }

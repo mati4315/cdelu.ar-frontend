@@ -75,7 +75,7 @@ export const useAuthStore = defineStore('auth', {
       this.isLoading = true;
       try {
         // Importamos el profileService dentro de la función para evitar dependencias circulares
-        const { default: profileService } = await import('@/services/profileService');
+        const { profileService } = await import('@/services/profileService');
         const response = await profileService.getMyProfile();
         this.updateUserProfile(response.user);
       } catch (e: any) {

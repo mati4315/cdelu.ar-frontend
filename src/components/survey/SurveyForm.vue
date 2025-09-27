@@ -108,7 +108,19 @@
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Duración de la encuesta *
         </label>
-        <div class="grid grid-cols-2 gap-4">
+        <div v-if="!isEditing" class="grid grid-cols-1">
+          <select
+            id="duration_select"
+            v-model.number="selectedDuration"
+            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+          >
+            <option :value="10">10 minutos</option>
+            <option :value="15">15 minutos</option>
+            <option :value="30">30 minutos</option>
+            <option :value="60">1 hora</option>
+          </select>
+        </div>
+        <div v-else class="grid grid-cols-2 gap-4">
           <div>
             <label for="duration_hours" class="block text-xs text-gray-600 dark:text-gray-400 mb-1">
               Horas
@@ -189,7 +201,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useSurveyStore } from '@/store/survey';
 import type { Survey, SurveyCreateRequest, SurveyUpdateRequest } from '@/types/survey';
 
@@ -211,8 +223,8 @@ const form = ref({
   options: ['', ''], // Mínimo 2 opciones
   is_multiple_choice: false,
   max_votes_per_user: 1,
-  duration_hours: 1,
-  duration_minutes: 0,
+  duration_hours: 0,
+  duration_minutes: 15,
   status: 'active' as 'active' | 'inactive' | 'completed'
 });
 
@@ -229,6 +241,18 @@ const isFormValid = computed(() => {
          (!form.value.is_multiple_choice || form.value.max_votes_per_user >= 1) &&
          (form.value.duration_hours > 0 || form.value.duration_minutes > 0);
 });
+
+// Selección de duración predefinida (solo para creación)
+const selectedDuration = ref<number>(15);
+
+watch(selectedDuration, (newMinutes) => {
+  if (!isEditing.value) {
+    const hours = Math.floor(newMinutes / 60);
+    const minutes = newMinutes % 60;
+    form.value.duration_hours = hours;
+    form.value.duration_minutes = minutes;
+  }
+}, { immediate: true });
 
 // Methods
 const addOption = () => {

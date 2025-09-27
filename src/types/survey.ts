@@ -58,6 +58,7 @@ export interface SurveyUpdateRequest {
 export interface SurveyListResponse {
   success: boolean;
   data: Survey[];
+  server_time?: string;
   pagination?: {
     page: number;
     limit: number;
@@ -70,6 +71,7 @@ export interface SurveyListResponse {
 export interface SurveyResponse {
   success: boolean;
   data: Survey;
+  server_time?: string;
   message?: string;
 }
 

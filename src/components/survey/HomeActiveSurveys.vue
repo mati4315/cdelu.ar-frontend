@@ -111,11 +111,12 @@
               <span v-else>Actualizando...</span>
             </button>
           </div>
-          <span class="text-xs text-gray-400">
-            {{ getTimeRemaining(activeSurveys[0]) }}
-            <span v-if="lastRefresh && shouldShowResults(activeSurveys[0])" class="last-update">
-              • Actualizado {{ getLastUpdateTime() }}
-            </span>
+          
+          <span
+            class="selected-badge"
+            :title="getSelectedOptionId(activeSurveys[0]) !== null ? 'Tu elección' : 'Cuenta regresiva'"
+          >
+            <template v-if="getSelectedOptionId(activeSurveys[0]) !== null">Tu elección • </template>⏳ {{ getTimeRemaining(activeSurveys[0]) }}
           </span>
         </div>
       </div>
@@ -158,6 +159,10 @@ const justVoted = ref<number | null>(null);
 const userVotedSurveys = ref<Set<number>>(new Set());
 const refreshing = ref(false);
 const lastRefresh = ref<Date>(new Date());
+const currentTime = ref<Date>(new Date());
+const serverTimeOffsetMs = ref<number>(0);
+let countdownInterval: number | null = null;
+const expirationHandledIds = ref<Set<number>>(new Set());
 
 // Computed properties
 const activeSurveys = computed(() => {
@@ -203,7 +208,7 @@ const hasUserVoted = (survey: Survey): boolean => {
   return false;
 };
 
-const markSurveyAsVoted = (surveyId: number) => {
+const markSurveyAsVoted = (surveyId: number, optionId?: number) => {
   // Agregar a localStorage
   const votedSurveys = localStorage.getItem('userVotedSurveys');
   let votedIds = votedSurveys ? JSON.parse(votedSurveys) : [];
@@ -214,6 +219,15 @@ const markSurveyAsVoted = (surveyId: number) => {
   
   // Agregar al estado local
   userVotedSurveys.value.add(surveyId);
+
+  // Guardar la opción elegida para poder destacarla y mostrar contador
+  if (optionId) {
+    const key = 'userVotedOptionBySurvey';
+    const mapRaw = localStorage.getItem(key);
+    const mapObj = mapRaw ? JSON.parse(mapRaw) : {};
+    mapObj[String(surveyId)] = optionId;
+    localStorage.setItem(key, JSON.stringify(mapObj));
+  }
 };
 
 const calculatePercentage = (option: SurveyOption): number => {
@@ -242,6 +256,11 @@ const voteOption = async (optionId: number) => {
   if (!activeSurveys.value[0]) return;
   
   const survey = activeSurveys.value[0];
+  // Bloquear voto si ya expiró
+  if (survey.expires_at && currentTime.value >= parseApiDate(survey.expires_at)) {
+    alert('Esta encuesta ya ha expirado.');
+    return;
+  }
   voting.value = optionId;
   
   try {
@@ -253,8 +272,8 @@ const voteOption = async (optionId: number) => {
       // Mostrar confirmación temporal
       justVoted.value = optionId;
       
-      // Marcar la encuesta como votada INMEDIATAMENTE
-      markSurveyAsVoted(survey.id);
+      // Marcar la encuesta como votada INMEDIATAMENTE (y guardar la opción)
+      markSurveyAsVoted(survey.id, optionId);
       
       // Recargar datos del backend
       await surveyStore.reloadSurvey(survey.id);
@@ -280,11 +299,11 @@ const voteOption = async (optionId: number) => {
         alert(result.message || 'Error al votar');
       }
     }
-  } catch (error) {
-    console.error('Error al votar:', error);
+  } catch (err: any) {
+    console.error('Error al votar:', err);
     
     // Mensajes de error más informativos
-    const errorMessage = error.message || 'Error desconocido';
+    const errorMessage = (err && typeof err.message === 'string') ? err.message : 'Error desconocido';
     
     if (errorMessage.includes('límite') || errorMessage.includes('alcanzado')) {
       alert('⚠️ Esta encuesta ha alcanzado su límite de participación.\n\n💡 Solución: El administrador puede crear una nueva encuesta o aumentar el límite.');
@@ -300,26 +319,64 @@ const voteOption = async (optionId: number) => {
   }
 };
 
+const parseApiDate = (dateString: string): Date => {
+  if (!dateString) return new Date(NaN);
+  // Si el string ya tiene zona horaria (Z o ±HH:MM), usarlo tal cual
+  if (/Z|[+-]\d{2}:\d{2}$/.test(dateString)) {
+    return new Date(dateString);
+  }
+  // Si no tiene zona, asumir UTC para evitar desfases por huso horario local
+  return new Date(dateString + 'Z');
+};
+
 const getTimeRemaining = (survey: Survey): string => {
   if (!survey.expires_at) return 'Sin límite de tiempo';
   
-  const now = new Date();
-  const expires = new Date(survey.expires_at);
+  const now = currentTime.value;
+  const expires = parseApiDate(survey.expires_at);
   const diff = expires.getTime() - now.getTime();
   
   if (diff <= 0) return 'Expirada';
   
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-  
-  if (hours > 24) {
-    const days = Math.floor(hours / 24);
-    return `${days} día${days > 1 ? 's' : ''}`;
-  } else if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  } else {
-    return `${minutes}m`;
+  const totalSeconds = Math.floor(diff / 1000);
+  const days = Math.floor(totalSeconds / (24 * 3600));
+  const hours = Math.floor((totalSeconds % (24 * 3600)) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (days > 0) {
+    return `${days}d ${hours}h ${minutes}m ${seconds}s`;
   }
+  if (hours > 0) {
+    return `${hours}h ${minutes}m ${seconds}s`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s`;
+  }
+  return `${seconds}s`;
+};
+
+const getSelectedOptionId = (survey: Survey): number | null => {
+  // Si backend envía user_votes
+  if (survey.user_votes && survey.user_votes.length > 0) {
+    return survey.user_votes[0];
+  }
+  // Si se acaba de votar en esta sesión
+  if (justVoted.value) {
+    return justVoted.value;
+  }
+  // Fallback: leer del localStorage
+  const mapRaw = localStorage.getItem('userVotedOptionBySurvey');
+  if (mapRaw) {
+    try {
+      const mapObj = JSON.parse(mapRaw);
+      const val = mapObj[String(survey.id)];
+      return typeof val === 'number' ? val : null;
+    } catch (_) {
+      localStorage.removeItem('userVotedOptionBySurvey');
+    }
+  }
+  return null;
 };
 
 const getLastUpdateTime = () => {
@@ -337,6 +394,13 @@ const getLastUpdateTime = () => {
 
 const shouldShowVotingOptions = (survey: Survey): boolean => {
   if (!survey) return false;
+  // No permitir votar si la encuesta está expirada
+  if (survey.expires_at) {
+    const expires = parseApiDate(survey.expires_at);
+    if (currentTime.value >= expires) {
+      return false;
+    }
+  }
   
   const authStore = useAuthStore();
   const isAuthenticated = authStore.isAuthenticated;
@@ -461,10 +525,43 @@ onMounted(async () => {
   if (surveyStore.activeSurveys.length === 0) {
     await surveyStore.loadActiveSurveys(3);
   }
+  // Intentar sincronizar con server_time si vino en la última carga
+  try {
+    // No tenemos acceso directo a server_time desde el store, así que haremos una llamada ligera
+    // Nota: si en el futuro exponemos server_time en el store, úsalo directamente
+    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api/v1'}/surveys/active?limit=1`);
+    if (res.ok) {
+      const json = await res.json();
+      const st = json?.server_time as string | undefined;
+      if (st) {
+        const serverNow = new Date(st).getTime();
+        const clientNow = Date.now();
+        serverTimeOffsetMs.value = serverNow - clientNow;
+      }
+    }
+  } catch {}
   
   // Agregar listener para visibilidad de la página
   document.addEventListener('visibilitychange', handleVisibilityChange);
   
+  // Iniciar intervalo de cuenta regresiva y expiración
+  countdownInterval = window.setInterval(() => {
+    currentTime.value = new Date(Date.now() + serverTimeOffsetMs.value);
+    const surveys = activeSurveys.value;
+    let needsReload = false;
+    for (const s of surveys) {
+      if (!s.expires_at) continue;
+      const expiresAt = parseApiDate(s.expires_at);
+      if (currentTime.value >= expiresAt && !expirationHandledIds.value.has(s.id)) {
+        expirationHandledIds.value.add(s.id);
+        needsReload = true;
+      }
+    }
+    if (needsReload) {
+      surveyStore.loadActiveSurveys(3);
+    }
+  }, 1000);
+
   // Funciones de debug disponibles solo en desarrollo
   if (import.meta.env.DEV) {
     (window as any).clearSurveyVotes = clearVotedSurveys;
@@ -485,6 +582,10 @@ onMounted(async () => {
 // Limpiar listeners al desmontar
 onUnmounted(() => {
   document.removeEventListener('visibilitychange', handleVisibilityChange);
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
 });
 </script>
 
@@ -579,6 +680,16 @@ onUnmounted(() => {
   font-size: 1.1rem;
   font-weight: bold;
   color: #58a6ff;
+}
+
+.selected-badge {
+  background-color: #30363d;
+  color: #79c0ff;
+  padding: 4px 8px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  margin-right: 8px;
+  border: 1px solid #58a6ff33;
 }
 
 .progress-bar-container {

@@ -100,6 +100,12 @@ const routes: Array<RouteRecordRaw> = [
     component: ProfileView,
     meta: { requiresAuth: true }
   },
+  {
+    path: '/user/:username',
+    name: 'PublicProfile',
+    component: () => import('@/views/PublicProfileView.vue'),
+    props: true // Para pasar username como prop
+  },
   // Agrega aquí más rutas según tu documentación (Dashboard, Profile, etc.)
 ];
 

@@ -4,7 +4,33 @@
     <header class="feed-item-header">
       <div class="item-meta">
         <span class="item-type" :class="typeClass">{{ typeLabel }}</span>
-        <span class="item-author">{{ item.user_name || 'Sin autor' }}</span>
+        
+        <!-- Avatar y nombre del autor -->
+        <div v-if="item.user_name && item.user_id" class="author-info">
+          <img 
+            v-if="item.user_profile_picture"
+            :src="getFullImageUrl(item.user_profile_picture)"
+            :alt="`Avatar de ${item.user_name}`"
+            class="author-avatar"
+            @error="handleAvatarError"
+          />
+          <div 
+            v-else
+            class="author-avatar default-avatar"
+            :title="`${item.user_name.charAt(0).toUpperCase()}`"
+          >
+            {{ item.user_name.charAt(0).toUpperCase() }}
+          </div>
+          <span 
+            class="item-author clickable-author" 
+            @click.stop="handleAuthorClick"
+            :title="`Ver perfil de ${item.user_name}`"
+          >
+            {{ item.user_name }}
+          </span>
+        </div>
+        <span v-else class="item-author">Sin autor</span>
+        
         <time class="item-date" :datetime="item.published_at || item.created_at">
           {{ formatDate(item.published_at || item.created_at) }}
         </time>
@@ -26,9 +52,10 @@
           v-if="!imageError"
           :src="imageUrl" 
           :alt="item.titulo"
-          class="item-image"
+          class="item-image cursor-pointer hover:opacity-90 transition-opacity"
           loading="lazy"
           @error="handleImageError"
+          @click="openImageModal"
         />
         <div v-else class="image-error-placeholder">
           <span class="image-error-icon">🖼️</span>
@@ -57,17 +84,27 @@
       
       <!-- Para posts de comunidad, mantener diseño original -->
       <template v-else>
-        <p class="item-description">{{ displayDescription }}</p>
-        
+        <p class="item-description">
+          {{ isExpanded ? props.item.descripcion : truncatedDescription }}
+          <button 
+            v-if="needsReadMore" 
+            @click.stop="toggleExpanded"
+            class="read-more-btn"
+          >
+            {{ isExpanded ? ' Ocultar' : ' Leer más' }}
+          </button>
+        </p>
+
         <!-- Imagen para comunidad (posición original) -->
         <div v-if="imageUrl" class="image-container">
           <img 
             v-if="!imageError"
             :src="imageUrl" 
             :alt="item.titulo"
-            class="item-image"
+            class="item-image cursor-pointer hover:opacity-90 transition-opacity"
             loading="lazy"
             @error="handleImageError"
+            @click="openImageModal"
           />
           <div v-else class="image-error-placeholder">
             <span class="image-error-icon">🖼️</span>
@@ -85,22 +122,7 @@
 
     <!-- Footer con estadísticas y acciones -->
     <footer class="feed-item-footer" v-if="showActions">
-      <div class="item-stats">
-        <span 
-          class="stat likes" 
-          :class="{ active: isLiked }"
-          @click="handleLike"
-          :title="isLiked ? 'Quitar me gusta' : 'Me gusta'"
-          style="cursor: pointer;"
-        >
-          <span class="stat-icon">❤️</span>
-          <span class="stat-count">{{ formatNumber(item.likes_count) }}</span>
-        </span>
-        <span class="stat comments">
-          <span class="stat-icon">💬</span>
-          <span class="stat-count">{{ formatNumber(item.comments_count) }}</span>
-        </span>
-      </div>
+      <!-- Eliminado item-stats -->
       
       <!-- Acciones -->
       <div class="item-actions">
@@ -112,7 +134,10 @@
           :disabled="isLikeLoading"
         >
           <span v-if="isLikeLoading" class="loading-spinner">⏳</span>
-          <span v-else>{{ isLiked ? '❤️' : '🤍' }}</span>
+          <span v-else class="like-btn-content">
+            <span class="like-icon">{{ isLiked ? '💚' : '🤍' }}</span>
+            <span class="like-count">{{ formatNumber(item.likes_count) }}</span>
+          </span>
         </button>
         
         <button 
@@ -120,7 +145,10 @@
           class="action-btn comment-btn"
           title="Ver comentarios"
         >
-          💬
+          <span class="comment-btn-content">
+            <span class="comment-icon">💬</span>
+            <span class="comment-count">{{ formatNumber(item.comments_count || 0) }}</span>
+          </span>
         </button>
         
         <button 
@@ -141,6 +169,16 @@
       </div>
     </footer>
   </article>
+  
+  <!-- Modal de imagen (teleport al body para máxima compatibilidad) -->
+  <Teleport to="body">
+    <ImageViewerModal
+      v-if="showImageModal"
+      :images="[imageUrl!]"
+      :initial-index="0"
+      @close="closeImageModal"
+    />
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -149,6 +187,8 @@ import { useRouter } from 'vue-router';
 import type { FeedItemProps, FeedItemEmits } from '@/types/feed';
 import { useFeedStore } from '@/store/feedStore';
 import { useAuth } from '@/composables/useAuth';
+import { profileService } from '@/services/profileService';
+import ImageViewerModal from '@/components/ui/ImageViewerModal.vue';
 
 interface Props extends FeedItemProps {}
 
@@ -169,6 +209,7 @@ const { debugAuth, isAuthenticated } = useAuth();
 const imageError = ref(false);
 const isLikeLoading = ref(false);
 const isExpanded = ref(false);
+const showImageModal = ref(false);
 
 // Computed properties - usar el estado del servidor
 const isLiked = computed(() => props.item.is_liked || false);
@@ -198,7 +239,13 @@ const imageUrl = computed(() => {
       url = Array.isArray(parsed) ? parsed[0] : url;
     } catch (e) {
       console.warn('🖼️ [IMAGE] Error parsing URL:', props.item.image_url);
-      return null;
+      // Si no se puede parsear, intentar extraer manualmente
+      const match = url.match(/\["([^"]+)"\]/);
+      if (match) {
+        url = match[1];
+      } else {
+        return null;
+      }
     }
   }
   
@@ -213,19 +260,24 @@ const imageUrl = computed(() => {
     return null;
   }
   
-  // Construir URL completa del servidor
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
-  // Para imágenes, necesitamos solo la URL base del servidor, no la API
-  const serverBaseUrl = baseUrl.replace('/api/v1', '');
-  
   // Si ya es una URL completa, devolverla tal como está
   if (url.startsWith('http://') || url.startsWith('https://')) {
     return url;
   }
   
-  // Si empieza con /public, construir la URL completa
-  if (url.startsWith('/public')) {
-    return `${serverBaseUrl}${url}`;
+  // Construir URL completa (tanto en desarrollo como producción)
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+  const serverBaseUrl = baseUrl.replace('/api/v1', '');
+  
+  // Si comienza con /public, remover el /public para evitar duplicación
+  if (url.startsWith('/public/')) {
+    const cleanUrl = url.replace('/public/', '/');
+    return `${serverBaseUrl}${cleanUrl}`;
+  }
+  
+  // En desarrollo, si es una ruta relativa simple, usar proxy de Vite
+  if (import.meta.env.DEV && !url.startsWith('/')) {
+    return url; // El proxy de Vite manejará la redirección automáticamente
   }
   
   // Si empieza con /, construir la URL completa
@@ -235,19 +287,6 @@ const imageUrl = computed(() => {
   
   // En caso contrario, construir la URL completa
   return `${serverBaseUrl}/${url}`;
-});
-
-const displayDescription = computed(() => {
-  if (!props.truncateDescription) {
-    return props.item.descripcion;
-  }
-  
-  const maxLength = props.maxDescriptionLength;
-  if (props.item.descripcion.length <= maxLength) {
-    return props.item.descripcion;
-  }
-  
-  return props.item.descripcion.substring(0, maxLength) + '...';
 });
 
 const truncatedDescription = computed(() => {
@@ -340,6 +379,42 @@ const handleItemClick = () => {
   emit('item-click', props.item);
 };
 
+// Función para navegar al perfil del autor
+const handleAuthorClick = () => {
+  if (props.item.user_id && props.item.user_name) {
+    console.log(`👤 [NAVIGATION] Navegando a perfil del autor - user_id: ${props.item.user_id}, user_name: ${props.item.user_name}`);
+    
+    // Generar username basado en el nombre del usuario
+    const username = generateUsername(props.item.user_name);
+    
+    // Navegar al perfil público usando el username generado
+    router.push(`/user/${username}`);
+  }
+};
+
+// Función para generar username desde el nombre
+const generateUsername = (name: string): string => {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '.') // Espacios por puntos
+    .replace(/[^a-z0-9._-]/g, '') // Solo caracteres válidos
+    .replace(/\.+/g, '.') // Múltiples puntos por uno solo
+    .replace(/^\.+|\.+$/g, '') // Quitar puntos al inicio y final
+    .substring(0, 30) || 'usuario'; // Máximo 30 caracteres con fallback
+};
+
+// Modal de imagen
+const openImageModal = () => {
+  if (imageUrl.value) {
+    showImageModal.value = true;
+  }
+};
+
+const closeImageModal = () => {
+  showImageModal.value = false;
+};
+
 const handleLike = async () => {
   if (isLikeLoading.value) return; // Prevenir clicks múltiples
   
@@ -373,6 +448,46 @@ const handleLike = async () => {
 };
 
 const handleComments = () => {
+  console.log(`💬 [FEED ITEM] Navegando a comentarios - tipo: ${props.item.type}, original_id: ${props.item.original_id}`);
+  
+  // Determinar la ruta según el tipo de post
+  let routePath: string;
+  
+  if (props.item.type === 1) {
+    // Para noticias, usar la ruta existente
+    routePath = `/noticia/${props.item.original_id}`;
+  } else {
+    // Para comunidad, usar la nueva ruta
+    routePath = `/comunidad/${props.item.original_id}`;
+  }
+  
+  // Navegar y hacer scroll automático a la sección de comentarios
+  router.push(routePath).then(() => {
+    // Esperar un poco para que la página cargue y luego hacer scroll
+    setTimeout(() => {
+      const commentsSection = document.getElementById('comments-section');
+      if (commentsSection) {
+        commentsSection.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start',
+          inline: 'nearest'
+        });
+        console.log('✅ [FEED ITEM] Scroll automático a comentarios realizado');
+      } else {
+        console.warn('⚠️ [FEED ITEM] Sección de comentarios no encontrada, reintentando...');
+        // Reintentar después de más tiempo si no se encuentra
+        setTimeout(() => {
+          const retrySection = document.getElementById('comments-section');
+          if (retrySection) {
+            retrySection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            console.log('✅ [FEED ITEM] Scroll a comentarios realizado (segundo intento)');
+          }
+        }, 1000);
+      }
+    }, 800);
+  });
+  
+  // Mantener compatibilidad con el evento
   emit('comments', props.item);
 };
 
@@ -398,13 +513,17 @@ const handleShare = async () => {
 };
 
 const handleImageError = () => {
-  console.warn('Error loading image:', {
-    originalUrl: props.item.image_url,
-    processedUrl: imageUrl.value,
-    itemId: props.item.id,
-    itemType: props.item.type
-  });
   imageError.value = true;
+};
+
+const handleAvatarError = (event: Event) => {
+  // Si falla cargar el avatar, no hacer nada (se muestra el fallback automáticamente)
+  console.warn('🖼️ [FEED ITEM] Error cargando avatar:', event);
+};
+
+const getFullImageUrl = (url: string | null | undefined): string => {
+  if (!url) return '';
+  return profileService.getFullImageUrl(url);
 };
 
 const toggleExpanded = () => {
@@ -414,8 +533,8 @@ const toggleExpanded = () => {
 
 <style scoped>
 .feed-item {
-  background: white;
-  border: 1px solid #e0e0e0;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 24px;
   margin-bottom: 20px;
@@ -428,11 +547,26 @@ const toggleExpanded = () => {
 .feed-item:hover {
   transform: translateY(-4px);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
-  border-color: #007bff;
+  border-color: var(--accent);
 }
 
 .feed-item--news {
-  border-left: 5px solid #007bff;
+  border-left: 5px solid var(--accent);
+}
+
+/* Solo en tema claro, dar fondo azulado suave y texto oscuro */
+/* Aplicar estilo claro a TODOS los tipos de feed-item en tema claro */
+html:not(.dark) .feed-item {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+/* Noticias con superficie azulada suave en tema claro */
+html:not(.dark) .feed-item.feed-item--news {
+  background: var(--news-surface);
+  color: var(--text);
+  border-color: var(--news-border);
 }
 
 .feed-item--news:hover {
@@ -440,11 +574,11 @@ const toggleExpanded = () => {
 }
 
 .feed-item--community {
-  border-left: 5px solid #28a745;
+  border-left: 5px solid var(--accent);
 }
 
 .feed-item--community:hover {
-  border-left-color: #1e7e34;
+  border-left-color: #0056b3;
 }
 
 /* Header */
@@ -461,6 +595,30 @@ const toggleExpanded = () => {
   gap: 12px;
   font-size: 14px;
   color: #6c757d;
+}
+
+.author-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.author-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border);
+}
+
+.author-avatar.default-avatar {
+  background: linear-gradient(135deg, var(--accent), #0056b3);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
 }
 
 .item-type {
@@ -487,6 +645,20 @@ const toggleExpanded = () => {
   color: #495057;
 }
 
+.clickable-author {
+  cursor: pointer;
+  transition: color 0.2s ease;
+  border-radius: 4px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+}
+
+.clickable-author:hover {
+  color: #007bff;
+  background-color: rgba(0, 123, 255, 0.1);
+  text-decoration: underline;
+}
+
 .item-date {
   color: #6c757d;
   font-size: 13px;
@@ -511,7 +683,7 @@ const toggleExpanded = () => {
   margin: 0 0 12px 0;
   font-size: 22px;
   font-weight: 700;
-  color: #212529;
+  color: var(--text);
   line-height: 1.3;
   transition: color 0.3s ease;
 }
@@ -521,12 +693,12 @@ const toggleExpanded = () => {
 }
 
 .clickable-title:hover {
-  color: #007bff;
+  color: #2ecc71;
   text-decoration: underline;
 }
 
 .feed-item:hover .item-title {
-  color: #007bff;
+  color: #2ecc71;
 }
 
 .item-summary {
@@ -535,7 +707,7 @@ const toggleExpanded = () => {
   font-style: italic;
   font-size: 16px;
   line-height: 1.4;
-  border-left: 3px solid #007bff;
+  border-left: 3px solid var(--accent);
   padding-left: 12px;
 }
 
@@ -545,7 +717,7 @@ const toggleExpanded = () => {
 
 .item-description {
   margin: 0 0 16px 0;
-  color: #495057;
+  color: var(--text);
   line-height: 1.6;
   font-size: 16px;
 }
@@ -595,90 +767,60 @@ const toggleExpanded = () => {
   border-top: 1px solid #e9ecef;
 }
 
-.item-stats {
-  display: flex;
-  gap: 20px;
-}
-
-.stat {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  color: #6c757d;
-  transition: all 0.3s ease;
-}
-
-.stat.likes {
-  cursor: pointer;
-  padding: 6px 10px;
-  border-radius: 15px;
-  user-select: none;
-}
-
-.stat.likes:hover {
-  background: rgba(220, 53, 69, 0.1);
-  color: #dc3545;
-  transform: translateY(-1px);
-}
-
-.stat.likes.active {
-  color: #dc3545;
-  background: rgba(220, 53, 69, 0.15);
-}
-
-.stat.likes.active:hover {
-  background: rgba(220, 53, 69, 0.2);
-}
-
-.stat:hover {
-  color: #495057;
-  transform: translateY(-1px);
-}
-
-.stat-icon {
-  font-size: 16px;
-}
-
-.stat-count {
-  font-weight: 600;
-}
+/* item-stats eliminado */
 
 .item-actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
+  padding: 6px;
+  border-radius: 16px;
+  margin-left: auto; /* Mantener a la derecha */
 }
 
 .action-btn {
   padding: 8px 12px;
-  border: 2px solid #dee2e6;
-  background: white;
-  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  border-radius: 22px;
   cursor: pointer;
   font-size: 16px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   min-width: 44px;
   height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: var(--text);
+}
+
+.like-btn .like-btn-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.like-btn .like-count {
+  font-weight: 700;
+  font-size: 14px;
 }
 
 .action-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  background: var(--surface);
+  border-color: var(--border);
 }
 
 .like-btn:hover, .like-btn.active {
-  background: #dc3545;
-  border-color: #dc3545;
-  color: white;
+  background: var(--success);
+  border-color: var(--success);
+  color: #ffffff;
 }
 
 .like-btn.loading {
-  background: #f8f9fa;
-  border-color: #dee2e6;
-  color: #6c757d;
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--muted);
   cursor: not-allowed;
 }
 
@@ -691,22 +833,33 @@ const toggleExpanded = () => {
   animation: spin 0.8s linear infinite;
 }
 
+.comment-btn .comment-btn-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.comment-btn .comment-count {
+  font-weight: 700;
+  font-size: 14px;
+}
+
 .comment-btn:hover {
-  background: #007bff;
-  border-color: #007bff;
-  color: white;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
 }
 
 .share-btn:hover {
-  background: #28a745;
-  border-color: #28a745;
-  color: white;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
 }
 
 .details-btn:hover {
-  background: #6f42c1;
-  border-color: #6f42c1;
-  color: white;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
 }
 
 /* Responsive */
@@ -715,24 +868,33 @@ const toggleExpanded = () => {
     padding: 20px;
     margin-bottom: 16px;
   }
-  
+
   .item-title {
     font-size: 20px;
   }
-  
+
   .item-description {
     font-size: 15px;
   }
-  
+
   .item-meta {
     gap: 8px;
     flex-wrap: wrap;
   }
-  
+
+  .author-avatar {
+    width: 28px;
+    height: 28px;
+  }
+
+  .author-avatar.default-avatar {
+    font-size: 12px;
+  }
+
   .item-actions {
     gap: 6px;
   }
-  
+
   .action-btn {
     min-width: 40px;
     height: 40px;
@@ -761,66 +923,54 @@ const toggleExpanded = () => {
   }
 }
 
-/* Dark mode */
-@media (prefers-color-scheme: dark) {
-  .feed-item {
-    background: #1a1a1a;
-    border-color: #404040;
-    color: #e0e0e0;
-  }
-  
-  .feed-item:hover {
-    border-color: #3182ce;
-  }
-  
-  .item-title {
-    color: #f0f0f0;
-  }
-  
-  .feed-item:hover .item-title {
-    color: #3182ce;
-  }
-  
-  .item-description, .item-summary {
-    color: #b0b0b0;
-  }
-  
-  .item-meta, .item-date {
-    color: #888;
-  }
-  
-  .item-author {
-    color: #c0c0c0;
-  }
-  
-  .feed-item-footer {
-    border-top-color: #404040;
-  }
-  
-  .action-btn {
-    background: #2a2a2a;
-    border-color: #404040;
-    color: #e0e0e0;
-  }
-  
-  .action-btn:hover {
-    background: #3a3a3a;
-  }
-  
-  .stat.likes:hover {
-    background: rgba(239, 68, 68, 0.2);
-    color: #ef4444;
-    transform: translateY(-1px);
-  }
-  
-  .stat.likes.active {
-    background: rgba(239, 68, 68, 0.25);
-    color: #ef4444;
-  }
-  
-  .stat.likes.active:hover {
-    background: rgba(239, 68, 68, 0.3);
-  }
+/* Dark mode controlado por clase .dark usando variables */
+html.dark .feed-item {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+html.dark .feed-item:hover {
+  border-color: var(--accent);
+}
+
+html.dark .item-title {
+  color: var(--text);
+}
+
+html.dark .feed-item:hover .item-title {
+  color: #34d399;
+}
+
+html.dark .item-description, html.dark .item-summary {
+  color: var(--text);
+}
+
+html.dark .item-meta, html.dark .item-date {
+  color: var(--muted);
+}
+
+html.dark .item-author {
+  color: var(--text);
+}
+
+html.dark .clickable-author:hover {
+  color: #4da6ff;
+  background-color: rgba(77, 166, 255, 0.15);
+}
+
+html.dark .feed-item-footer {
+  border-top-color: var(--border);
+}
+
+html.dark .action-btn {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+html.dark .action-btn:hover {
+  background: var(--surface);
 }
 
 /* Animaciones adicionales */

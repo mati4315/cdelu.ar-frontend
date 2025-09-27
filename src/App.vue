@@ -1,5 +1,5 @@
 <template>
-  <div id="app-container" class="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100">
+  <div id="app-container" class="flex flex-col min-h-screen">
     <AppHeader />
     <main class="flex-grow">
       <router-view />
@@ -24,5 +24,10 @@ import NotificationContainer from '@/components/ui/NotificationContainer.vue'
 /* Estilos globales adicionales si son necesarios */
 body {
   /* font-family ya está en main.css */
+}
+
+#app-container {
+  background-color: var(--bg);
+  color: var(--text);
 }
 </style> 

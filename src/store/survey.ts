@@ -22,6 +22,7 @@ interface SurveyState {
     total: number;
     pages: number;
   } | null;
+  rateLimitedUntil: number | null;
 }
 
 export const useSurveyStore = defineStore('survey', {
@@ -33,6 +34,7 @@ export const useSurveyStore = defineStore('survey', {
     loading: false,
     error: null,
     pagination: null,
+    rateLimitedUntil: null,
   }),
 
   getters: {
@@ -49,7 +51,11 @@ export const useSurveyStore = defineStore('survey', {
      * Obtener encuestas completadas (ya votadas por el usuario)
      */
     getCompletedSurveys: (state) => {
-      return state.activeSurveys.filter(survey => survey.user_voted);
+      const now = new Date();
+      return state.surveys.filter(survey => {
+        const isExpired = survey.expires_at ? (new Date(survey.expires_at) <= now) : false;
+        return survey.status === 'completed' || survey.user_voted || isExpired;
+      });
     },
 
     /**
@@ -72,6 +78,12 @@ export const useSurveyStore = defineStore('survey', {
      * Cargar todas las encuestas con filtros
      */
     async loadSurveys(filters: SurveyFilters = {}) {
+      // Respetar rate limit si está activo
+      const now = Date.now();
+      if (this.rateLimitedUntil && now < this.rateLimitedUntil) {
+        this.error = 'Ha excedido el límite de solicitudes. Intente nuevamente más tarde.';
+        return;
+      }
       this.loading = true;
       this.error = null;
       
@@ -85,7 +97,12 @@ export const useSurveyStore = defineStore('survey', {
           this.error = response.message || 'Error cargando encuestas';
         }
       } catch (error) {
-        this.error = error instanceof Error ? error.message : 'Error desconocido';
+        const message = error instanceof Error ? error.message : 'Error desconocido';
+        this.error = message;
+        if (message.includes('límite de solicitudes') || message.includes('límite de solicitud') || message.includes('Too Many')) {
+          // Pausa solicitudes por 60s
+          this.rateLimitedUntil = Date.now() + 60_000;
+        }
         console.error('Error cargando encuestas:', error);
       } finally {
         this.loading = false;
@@ -96,6 +113,12 @@ export const useSurveyStore = defineStore('survey', {
      * Cargar encuestas activas para el feed
      */
     async loadActiveSurveys(limit: number = 5) {
+      // Respetar rate limit si está activo
+      const now = Date.now();
+      if (this.rateLimitedUntil && now < this.rateLimitedUntil) {
+        this.error = 'Ha excedido el límite de solicitudes. Intente nuevamente más tarde.';
+        return;
+      }
       this.loading = true;
       this.error = null;
       
@@ -110,14 +133,20 @@ export const useSurveyStore = defineStore('survey', {
           const allSurveysResponse = await surveyService.getSurveys({ limit: 20 });
           
           if (allSurveysResponse.success) {
-            // Filtrar encuestas activas en el frontend
-            this.activeSurveys = allSurveysResponse.data.filter(survey => survey.status === 'active');
+            // Filtrar encuestas activas en el frontend (no expiradas)
+            this.activeSurveys = allSurveysResponse.data.filter(survey => 
+              survey.status === 'active' && surveyService.isSurveyActive(survey)
+            );
           } else {
             this.error = allSurveysResponse.message || 'Error cargando encuestas';
           }
         }
       } catch (error) {
-        this.error = error instanceof Error ? error.message : 'Error desconocido';
+        const message = error instanceof Error ? error.message : 'Error desconocido';
+        this.error = message;
+        if (message.includes('límite de solicitudes') || message.includes('límite de solicitud') || message.includes('Too Many')) {
+          this.rateLimitedUntil = Date.now() + 60_000;
+        }
         console.error('Error cargando encuestas activas:', error);
       } finally {
         this.loading = false;

@@ -63,6 +63,14 @@ async function handleApiError(error: any): Promise<never> {
       const validationMessage = apiError.message || apiError.error || 'Error de validación';
       console.log('📋 Detalles de validación:', apiError);
       throw new Error(`Error de validación: ${validationMessage}`);
+    } else if (status === 429) {
+      // Límite de solicitudes alcanzado
+      const retryAfter = error.response.headers?.['retry-after'];
+      const baseMsg = 'Ha excedido el límite de solicitudes. Intente nuevamente más tarde.';
+      if (retryAfter) {
+        throw new Error(`${baseMsg} Reintente en ${retryAfter} segundos.`);
+      }
+      throw new Error(baseMsg);
     } else if (status === 500) {
       // Mensajes específicos para errores 500 comunes en votación
       if (apiError.message?.includes('votado') || apiError.message?.includes('duplicate')) {

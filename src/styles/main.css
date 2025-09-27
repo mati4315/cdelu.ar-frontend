@@ -9,33 +9,49 @@ body {
 }
 
 /* ==========================
-   Sistema de colores global (Light/Dark)
+   Sistema de colores global (Light/Dark) estilo Facebook clásico
    ========================== */
 :root {
-  --bg: #f5f6f8;
+  /* Fondo y superficies */
+  --bg: #f0f2f5;
   --surface: #ffffff;
-  --surface-2: #f8fafc;
-  --text: #111827; /* gray-900 */
-  --muted: #6b7280; /* gray-500 */
-  --border: #e5e7eb; /* gray-200 */
-  --accent: #3b82f6; /* blue-500 */
-  --success: #22c55e; /* green-500 */
-  --warning: #f59e0b; /* amber-500 */
-  --danger: #ef4444; /* red-500 */
+  --surface-2: #f5f6f7;
+  /* Tipografía y bordes */
+  --text: #1c1e21;
+  --muted: #606770;
+  --border: #ccd0d5;
+  /* Acento y navegación */
+  --accent: #1877f2; /* enlaces y botones */
+  --nav: #4267b2; /* barra superior clásica */
+  --on-nav: #ffffff;
+  --nav-border: #365899;
+  /* Superficie especial para noticias en tema claro */
+  --news-surface: #e9f0ff; /* azul muy suave */
+  --news-border: #c9d6f3;
+  /* Estados */
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
 }
 
 html.dark,
 html[data-theme="dark"] {
-  --bg: #0f141a;
-  --surface: #111827; /* gray-900 */
-  --surface-2: #1f2937; /* gray-800 */
-  --text: #e5e7eb; /* gray-200 */
-  --muted: #9ca3af; /* gray-400 */
-  --border: #374151; /* gray-700 */
-  --accent: #60a5fa; /* blue-400 */
-  --success: #34d399; /* emerald-400 */
-  --warning: #fbbf24; /* amber-400 */
-  --danger: #f87171; /* red-400 */
+  --bg: #18191a;
+  --surface: #242526;
+  --surface-2: #2f3031;
+  --text: #e4e6eb;
+  --muted: #b0b3b8;
+  --border: #3a3b3c;
+  --accent: #2d88ff; /* azul FB en dark */
+  --nav: #3b5998;
+  --on-nav: #ffffff;
+  --nav-border: #314a86;
+  /* En oscuro mantener las superficies por defecto */
+  --news-surface: var(--surface);
+  --news-border: var(--border);
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
 }
 
 /* Base */

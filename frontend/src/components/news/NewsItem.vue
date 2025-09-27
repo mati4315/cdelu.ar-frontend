@@ -6,7 +6,9 @@
           {{ noticia.titulo }}
         </router-link>
       </h2>
-      <img v-if="noticia.image_url" :src="noticia.image_url" :alt="`Imagen de ${noticia.titulo}`" class="w-full h-auto object-cover mb-4 rounded max-h-96">
+      <div v-if="noticia.image_url">
+        <img :src="noticia.image_url" :alt="`Imagen de ${noticia.titulo}`" class="w-full h-auto object-cover mb-4 rounded max-h-96">
+      </div>
       <div class="prose dark:prose-invert max-w-none mb-4 text-gray-700 dark:text-gray-300">
         <p v-if="mostrarCompleta || noticia.descripcion.length <= MAX_CHARS_SUMMARY">
           {{ noticia.descripcion }}
