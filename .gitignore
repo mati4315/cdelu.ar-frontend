@@ -88,3 +88,10 @@ pnpm-lock.yaml
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Gradle files (Android project)
+.gradle/
+gradle/
+*.gradle
+gradlew
+gradlew.bat
