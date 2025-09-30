@@ -103,8 +103,8 @@
               <div v-if="!isOwnProfile" class="mb-6">
                 <FollowButton 
                   :user-id="currentProfile.id"
-                  :is-following="isFollowingCurrentUser"
-                  :loading="followActionLoading"
+                  :is-following="isFollowingCurrentUser.value"
+                  :loading="followActionLoading.value"
                   @follow="handleFollow"
                   @unfollow="handleUnfollow"
                 />
