@@ -24,7 +24,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { useAuth } from '@/composables/useAuth';
 
 interface Props {
@@ -49,6 +49,15 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<Emits>();
 
 const { isAuthenticated } = useAuth();
+
+// Debug: Watch for prop changes
+watch(() => props.isFollowing, (newValue, oldValue) => {
+  console.log(`🔍 [FOLLOW BUTTON] isFollowing changed: ${oldValue} → ${newValue}`);
+});
+
+watch(() => props.loading, (newValue, oldValue) => {
+  console.log(`🔍 [FOLLOW BUTTON] loading changed: ${oldValue} → ${newValue}`);
+});
 
 // Computed properties
 const buttonText = computed(() => {
