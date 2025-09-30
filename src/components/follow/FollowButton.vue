@@ -53,7 +53,7 @@ const { isAuthenticated } = useAuth();
 // Computed properties
 const buttonText = computed(() => {
   if (!isAuthenticated.value) return 'Inicia sesión para seguir';
-  return props.isFollowing ? 'Siguiendo' : 'Seguir';
+  return props.isFollowing ? 'Dejar de seguir' : 'Seguir';
 });
 
 const loadingText = computed(() => {
@@ -84,11 +84,11 @@ const buttonClass = computed(() => {
     // Following state - can unfollow
     switch (props.variant) {
       case 'secondary':
-        return `${baseClasses} ${sizeClasses[props.size]} bg-gray-100 text-gray-700 border-gray-300 hover:bg-red-50 hover:text-red-600 hover:border-red-300 focus:ring-red-500 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-red-900/20 dark:hover:text-red-400`;
+        return `${baseClasses} ${sizeClasses[props.size]} bg-red-50 text-red-600 border-red-200 hover:bg-red-100 hover:text-red-700 hover:border-red-300 focus:ring-red-500 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/30 dark:hover:text-red-300`;
       case 'outline':
-        return `${baseClasses} ${sizeClasses[props.size]} bg-transparent text-gray-600 border-gray-300 hover:bg-red-50 hover:text-red-600 hover:border-red-300 focus:ring-red-500 dark:text-gray-400 dark:border-gray-600 dark:hover:bg-red-900/20 dark:hover:text-red-400`;
+        return `${baseClasses} ${sizeClasses[props.size]} bg-transparent text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700 hover:border-red-400 focus:ring-red-500 dark:text-red-400 dark:border-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-300`;
       default: // primary
-        return `${baseClasses} ${sizeClasses[props.size]} bg-green-600 text-white border-green-600 hover:bg-red-600 hover:border-red-600 focus:ring-green-500`;
+        return `${baseClasses} ${sizeClasses[props.size]} bg-red-500 text-white border-red-500 hover:bg-red-600 hover:border-red-600 focus:ring-red-500`;
     }
   } else {
     // Not following state - can follow
@@ -107,7 +107,7 @@ const buttonIcon = computed(() => {
   if (!isAuthenticated.value) {
     return 'LockIcon';
   }
-  return props.isFollowing ? 'CheckIcon' : 'PlusIcon';
+  return props.isFollowing ? 'MinusIcon' : 'PlusIcon';
 });
 
 // Event handlers
@@ -132,10 +132,10 @@ const PlusIcon = {
   `
 };
 
-const CheckIcon = {
+const MinusIcon = {
   template: `
     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
     </svg>
   `
 };
@@ -160,12 +160,12 @@ const LockIcon = {
   }
 }
 
-@keyframes pulse-green {
+@keyframes pulse-red {
   0%, 100% {
-    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5);
   }
   50% {
-    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0);
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0);
   }
 }
 
@@ -174,8 +174,8 @@ button:not(:disabled):hover {
   animation: pulse-blue 1s infinite;
 }
 
-button:not(:disabled).bg-green-600:hover {
-  animation: pulse-green 1s infinite;
+button:not(:disabled).bg-red-500:hover {
+  animation: pulse-red 1s infinite;
 }
 
 /* Transiciones suaves */
