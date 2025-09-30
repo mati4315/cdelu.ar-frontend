@@ -87,7 +87,7 @@
           :src="post.video_url ? getFullImageUrl(post.video_url) : ''" 
           controls 
           class="w-full max-h-96 rounded-lg bg-black"
-          @error="handleMediaError"
+          @error="(event: Event) => handleMediaError(new Error('Video load failed'))"
         >
           Tu navegador no soporta el elemento video.
         </video>

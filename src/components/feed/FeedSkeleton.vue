@@ -1,5 +1,5 @@
 <template>
-  <div class="feed-skeleton-item bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-6 mb-4 shadow-sm animate-pulse">
+  <div class="feed-skeleton-item bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-6 mb-4 shadow-sm animate-pulse" style="min-height: 180px; contain: layout;">
     <!-- Header con tipo y metadatos -->
     <div class="skeleton-header mb-4">
       <div class="skeleton-type bg-gray-200 dark:bg-gray-600 rounded-full w-20 h-6 mb-2"></div>

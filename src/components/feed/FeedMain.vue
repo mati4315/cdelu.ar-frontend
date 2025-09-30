@@ -7,10 +7,39 @@
       <HomeActiveSurveys />
       <!-- Reproductor en línea debajo de home-active-surveys (solo si está habilitado) -->
       <template v-if="videoStore.shouldLoadVideo()">
-        <div class="container mx-auto px-4 py-4">
-          <InlineLivePlayer />
-          <InlineLiveComments />
-        </div>
+        <!-- Video en vivo inline (ultra lazy loaded) -->
+        <CriticalLazyLoad 
+          :component-loader="() => import('@/components/live/InlineLivePlayer.vue')"
+          trigger-margin="200px"
+          class="container mx-auto px-4 py-4"
+        >
+          <template #skeleton>
+            <div class="bg-gray-900 rounded-lg h-64 flex items-center justify-center">
+              <div class="text-white text-center">
+                <div class="animate-pulse">
+                  <div class="w-16 h-16 bg-gray-700 rounded-full mx-auto mb-4"></div>
+                  <div class="h-4 bg-gray-700 rounded w-32 mx-auto"></div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </CriticalLazyLoad>
+        
+        <CriticalLazyLoad 
+          :component-loader="() => import('@/components/live/InlineLiveComments.vue')"
+          trigger-margin="300px"
+          class="container mx-auto px-4"
+        >
+          <template #skeleton>
+            <div class="bg-white rounded-lg p-4 mt-4">
+              <div class="animate-pulse space-y-3">
+                <div class="h-4 bg-gray-200 rounded w-1/4"></div>
+                <div class="h-4 bg-gray-200 rounded w-3/4"></div>
+                <div class="h-4 bg-gray-200 rounded w-1/2"></div>
+              </div>
+            </div>
+          </template>
+        </CriticalLazyLoad>
       </template>
     </div>
     
@@ -144,8 +173,7 @@ import FeedItem from './FeedItem.vue';
 import FeedAdItem from './FeedAdItem.vue';
 import FeedLotteryAdItem from './FeedLotteryAdItem.vue';
 import HomeActiveSurveys from '../survey/HomeActiveSurveys.vue';
-import InlineLivePlayer from '../live/InlineLivePlayer.vue';
-import InlineLiveComments from '../live/InlineLiveComments.vue';
+import CriticalLazyLoad from '@/components/CriticalLazyLoad.vue';
 import { useVideoStore } from '@/store/videoStore';
 import type { FeedMainProps, FeedItem as FeedItemType, FeedTab } from '@/types/feed';
 import type { Ad } from '@/types/ads';

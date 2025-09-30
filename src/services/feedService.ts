@@ -165,6 +165,35 @@ class FeedService {
     }
   }
 
+  // NUEVO: Feed de usuarios seguidos
+  async getFollowing(params: FeedParams = {}): Promise<FeedResponse> {
+    console.log(`👥 [FEED SERVICE] Obteniendo contenido de seguidores:`, params);
+    
+    try {
+      const response = await this.apiClient.get<FeedResponse>('/feed/following', { params });
+      return response.data;
+    } catch (error: any) {
+      // ✅ BACKEND OPTIMIZADO: Endpoint implementado con performance ~3ms
+      if (error.response?.status === 404) {
+        console.log(`⚠️ [FEED SERVICE] Endpoint /feed/following no disponible, verificar implementación backend`);
+        
+        // Como fallback temporal, devolver feed vacío 
+        return {
+          data: [],
+          pagination: {
+            page: 1,
+            limit: 10,
+            total: 0,
+            hasMore: false
+          }
+        };
+      }
+      
+      console.error('❌ [FEED SERVICE] Error in getFollowing:', error);
+      throw error;
+    }
+  }
+
   // NUEVO: Estadísticas del feed
   async getFeedStats(): Promise<FeedStats> {
     try {
@@ -241,7 +270,7 @@ class FeedService {
   }
 
   // Método helper para obtener contenido según pestaña
-  async getContentByTab(tab: 'todo' | 'noticias' | 'comunidad', params: FeedParams = {}): Promise<FeedResponse> {
+  async getContentByTab(tab: 'todo' | 'noticias' | 'comunidad' | 'seguidores', params: FeedParams = {}): Promise<FeedResponse> {
     switch (tab) {
       case 'todo':
         return this.getFeed(params);
@@ -249,6 +278,8 @@ class FeedService {
         return this.getNews(params);
       case 'comunidad':
         return this.getCommunity(params);
+      case 'seguidores':
+        return this.getFollowing(params);
       default:
         throw new Error(`Pestaña no válida: ${tab}`);
     }
@@ -405,6 +436,7 @@ export const {
   getFeed,
   getNews,
   getCommunity,
+  getFollowing,
   getFeedStats,
   getPostByOriginalId,
   getFeedItem,

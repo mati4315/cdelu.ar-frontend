@@ -58,8 +58,7 @@
         <!-- Botones de interacción -->
         <div class="flex items-center mb-8">
           <button @click="handleLike" 
-                  :disabled="!isAuthenticated"
-                  class="mr-4 flex items-center py-2 px-4 rounded-md transition-colors duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
+                  class="mr-4 flex items-center py-2 px-4 rounded-md transition-colors duration-150 ease-in-out"
                   :class="{
                     'bg-red-500 text-white hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700': isLiked,
                     'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600': !isLiked
@@ -68,7 +67,7 @@
               <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" />
             </svg>
             <span class="font-medium">
-              {{ likesCount }} {{ likesCount === 1 ? 'Me gusta' : 'Me gustas' }}
+              {{ likesCount }} Likes
             </span>
           </button>
           
@@ -105,6 +104,11 @@
       <p class="text-lg text-gray-600 dark:text-gray-300">No se encontró el contenido.</p>
     </div>
   </div>
+
+  <LoginPromptModal
+    :is-open="showLoginPrompt"
+    @close="closeLoginPrompt"
+  />
 </template>
 
 <script setup lang="ts">
@@ -114,6 +118,7 @@ import { useFeedStore } from '@/store/feedStore';
 import { useAuth } from '@/composables/useAuth';
 import { useTokenValidation } from '@/composables/useTokenValidation';
 import FeedCommentSection from '@/components/feed/FeedCommentSection.vue';
+import LoginPromptModal from '@/components/ui/LoginPromptModal.vue';
 import type { FeedItem } from '@/types/feed';
 
 // Props
@@ -134,6 +139,7 @@ const item = ref<FeedItem | null>(null);
 const loading = ref(true);
 const error = ref<string | null>(null);
 const imageError = ref(false);
+const showLoginPrompt = ref(false);
 
 // Computed
 const typeLabel = computed(() => {
@@ -225,7 +231,8 @@ const handleLike = async () => {
   
   // Verificar autenticación y token válido
   if (!isAuthenticated.value) {
-    console.log('❌ [COMMUNITY DETAIL] Usuario no autenticado');
+    console.log('❌ [COMMUNITY DETAIL] Usuario no autenticado - mostrando modal');
+    showLoginPrompt.value = true;
     return;
   }
 
@@ -262,6 +269,10 @@ const handleLike = async () => {
       return; // Ya se manejó en el service
     }
   }
+};
+
+const closeLoginPrompt = () => {
+  showLoginPrompt.value = false;
 };
 
 const handleImageError = () => {

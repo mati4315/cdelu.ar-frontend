@@ -64,38 +64,52 @@
                 </p>
               </div>
 
-              <!-- Estadísticas del usuario -->
+              <!-- Estadísticas del usuario REALES desde backend -->
               <div class="mt-6 grid grid-cols-2 gap-4">
-                <div class="text-center">
+                <!-- NUEVAS: Estadísticas de seguimiento -->
+                <div class="text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors" 
+                     @click="openFollowersModal" 
+                     :title="feedStore.userStats.followers_count > 0 ? 'Ver seguidores' : 'Sin seguidores'">
                   <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                    {{ userStats.commentsCount }}
+                    {{ formatNumber(feedStore.userStats.followers_count) }}
                   </div>
                   <div class="text-xs text-gray-500 dark:text-gray-400">
-                    Comentarios
+                    Seguidores
+                  </div>
+                </div>
+                <div class="text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+                     @click="openFollowingModal"
+                     :title="feedStore.userStats.following_count > 0 ? 'Ver siguiendo' : 'No sigues a nadie'">
+                  <div class="text-2xl font-bold text-green-600 dark:text-green-400">
+                    {{ formatNumber(feedStore.userStats.following_count) }}
+                  </div>
+                  <div class="text-xs text-gray-500 dark:text-gray-400">
+                    Siguiendo
                   </div>
                 </div>
                 <div class="text-center">
-                  <div class="text-2xl font-bold text-green-600 dark:text-green-400">
+                  <div class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                    {{ formatNumber(feedStore.userStats.posts_count) }}
+                  </div>
+                  <div class="text-xs text-gray-500 dark:text-gray-400">
+                    Publicaciones
+                  </div>
+                </div>
+                <div class="text-center">
+                  <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">
                     {{ userStats.joinedDays }}
                   </div>
                   <div class="text-xs text-gray-500 dark:text-gray-400">
                     Días activo
                   </div>
                 </div>
+                <!-- MANTENER: Estadísticas de loterías (específicas del sistema) -->
                 <div class="text-center">
-                  <div class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                    {{ communityPosts }}
-                  </div>
-                  <div class="text-xs text-gray-500 dark:text-gray-400">
-                    Publicaciones de comunidad
-                  </div>
-                </div>
-                <div class="text-center">
-                  <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                  <div class="text-2xl font-bold text-orange-600 dark:text-orange-400">
                     {{ lotteryParticipations }}
                   </div>
                   <div class="text-xs text-gray-500 dark:text-gray-400">
-                    Participaciones en loterías
+                    Loterías jugadas
                   </div>
                 </div>
                 <div class="text-center">
@@ -374,14 +388,16 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 import { useAuthStore } from '@/store/auth';
+import { useFeedStore } from '@/store/feedStore';
 import { User, ProfileResponse } from '@/types/api';
 import ProfilePictureUpload from '@/components/ui/ProfilePictureUpload.vue';
 import UserPostsTab from '@/components/profile/UserPostsTab.vue';
 import { profileService } from '@/services/profileService';
 import { lotteryService } from '@/services/lotteryService'
 
-// Store
+// Stores
 const authStore = useAuthStore();
+const feedStore = useFeedStore();
 
 // Estado reactivo
 const isLoading = ref(true);
@@ -532,6 +548,25 @@ const formatDate = (dateString?: string) => {
   });
 };
 
+// Función para formatear números grandes
+const formatNumber = (num: number): string => {
+  if (num >= 1000000) {
+    return `${(num / 1000000).toFixed(1)}M`;
+  } else if (num >= 1000) {
+    return `${(num / 1000).toFixed(1)}k`;
+  }
+  return num.toString();
+};
+
+// Funciones para modales (por implementar - temporal)
+const openFollowersModal = () => {
+  console.log('🔄 [PROFILE] Abrir modal de seguidores - funcionalidad próximamente');
+};
+
+const openFollowingModal = () => {
+  console.log('🔄 [PROFILE] Abrir modal de siguiendo - funcionalidad próximamente');
+};
+
 const getRoleBadgeClass = (rol?: string) => {
   switch (rol) {
     case 'administrador':
@@ -656,6 +691,11 @@ onMounted(async () => {
   
   // Cargar datos actualizados del servidor
   await loadProfile();
+  
+  // ✅ NUEVO: Cargar estadísticas reales del usuario
+  console.log('📊 [PROFILE] Cargando estadísticas de usuario...');
+  await feedStore.loadUserStats();
+  console.log('✅ [PROFILE] Estadísticas cargadas:', feedStore.userStats);
   
   // Agregar listener para detectar sección visible
   window.addEventListener('scroll', updateActiveSection);

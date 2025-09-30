@@ -30,6 +30,8 @@
       <div v-if="isLoading" class="tabs-loading">
         <div class="loading-bar"></div>
       </div>
+      
+      <!-- ✅ Debug removido - Backend optimizado ya implementado -->
     </div>
   </div>
 </template>
@@ -37,6 +39,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import type { FeedTabsProps, FeedTabsEmits } from '@/types/feed';
+import { useThrottledScroll, useDOMBatch } from '@/composables/usePerformance';
+import { useFeedStore } from '@/store/feedStore';
 
 interface Props extends FeedTabsProps {
   isLoading?: boolean;
@@ -49,11 +53,10 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<FeedTabsEmits>();
 
-const tabs = [
-  { key: 'todo', label: 'Todo', icon: '🗞️', description: 'Noticias y comunidad' },
-  { key: 'noticias', label: 'Noticias', icon: '📰', description: 'Solo noticias' },
-  { key: 'comunidad', label: 'Comunidad', icon: '👥', description: 'Solo comunidad' }
-] as const;
+const feedStore = useFeedStore();
+
+// Obtener pestañas dinámicamente desde el store
+const tabs = computed(() => feedStore.visibleTabs);
 
 const getTabCount = (tab: string): number | null => {
   if (!props.stats) return null;
@@ -62,6 +65,7 @@ const getTabCount = (tab: string): number | null => {
     case 'todo': return props.stats.total;
     case 'noticias': return props.stats.by_type.news.count;
     case 'comunidad': return props.stats.by_type.community.count;
+    case 'seguidores': return null; // No mostrar contador para seguidores (contenido personalizado)
     default: return null;
   }
 };
@@ -78,13 +82,16 @@ const formatCount = (count: number | null): string => {
 
 const ignoreScrollUntil = ref<number>(0);
 
-const handleTabClick = (tab: 'todo' | 'noticias' | 'comunidad') => {
-  if (!props.disabledTabs?.includes(tab)) {
+const handleTabClick = (tab: string) => {
+  // Verificar que la pestaña sea válida y esté habilitada
+  if (!props.disabledTabs?.includes(tab as any)) {
     // Evitar que el cambio de pestaña dispare ocultamientos indeseados
     ignoreScrollUntil.value = performance.now() + 700; // 700ms de gracia
-    emit('tab-change', tab);
+    emit('tab-change', tab as any);
   }
 };
+
+// ✅ Debug removido - Sistema funcionando con backend optimizado
 
 // Referencias para sticky behavior
 const tabsContainer = ref<HTMLElement | null>(null);
@@ -96,17 +103,39 @@ const stickyLeft = ref(0);
 const stickyWidth = ref(0);
 const initialTop = ref(0);
 
+// Cache para evitar forced reflows
+let cachedHeight = 0;
+let cachedStickyState = false;
+
 const setRootTabsHeightVar = () => {
-  // Expone la altura para que otros componentes (header) puedan igualarla
-  document.documentElement.style.setProperty('--feed-tabs-height', `${tabsHeight.value || 60}px`);
-  // También expone el estado sticky para que el header sepa cuándo ocultarse
-  document.documentElement.style.setProperty('--feed-tabs-sticky', isSticky.value ? '1' : '0');
+  // Solo actualizar si cambió para evitar forced reflows
+  const currentHeight = tabsHeight.value || 60;
+  const currentSticky = isSticky.value;
+  
+  if (cachedHeight !== currentHeight) {
+    cachedHeight = currentHeight;
+    document.documentElement.style.setProperty('--feed-tabs-height', `${currentHeight}px`);
+  }
+  
+  if (cachedStickyState !== currentSticky) {
+    cachedStickyState = currentSticky;
+    document.documentElement.style.setProperty('--feed-tabs-sticky', currentSticky ? '1' : '0');
+  }
 };
 
+// Cache para bounds para evitar cálculos repetitivos
+let lastBounds = { left: 0, width: 0 };
+
 const updateStickyBoundsFromElement = (el: HTMLElement) => {
-  const r = el.getBoundingClientRect();
-  stickyLeft.value = r.left;
-  stickyWidth.value = r.width;
+  // Usar requestAnimationFrame para evitar forced reflow
+  requestAnimationFrame(() => {
+    const r = el.getBoundingClientRect();
+    if (lastBounds.left !== r.left || lastBounds.width !== r.width) {
+      lastBounds = { left: r.left, width: r.width };
+      stickyLeft.value = r.left;
+      stickyWidth.value = r.width;
+    }
+  });
 };
 
 const computeInitialTop = () => {
@@ -127,55 +156,64 @@ const stickyStyle = computed(() => {
     : {};
 });
 
-// Función para manejar el scroll
+// DOM batch para optimizar reads/writes
+const { read, write } = useDOMBatch();
+
+// Función para manejar el scroll (optimizada)
 const handleScroll = () => {
   if (!tabsContainer.value) return;
   
-  const currentScrollY = window.scrollY;
-  const scrollDirection = currentScrollY > lastScrollY.value ? 'down' : 'up';
-  const delta = Math.abs(currentScrollY - lastScrollY.value);
-  const now = performance.now();
+  // Usar read batch para lecturas DOM
+  read(() => {
+    const currentScrollY = window.scrollY;
+    const scrollDirection = currentScrollY > lastScrollY.value ? 'down' : 'up';
+    const delta = Math.abs(currentScrollY - lastScrollY.value);
+    const now = performance.now();
   
-  // Decidir sticky en base a la posición original en el documento
-  if (currentScrollY >= initialTop.value) {
-    if (!isSticky.value) {
-      isSticky.value = true;
-      setRootTabsHeightVar();
-      // al activarse, fijar límites actuales
-      updateStickyBoundsFromElement(tabsContainer.value.parentElement as HTMLElement || tabsContainer.value);
-    }
-
-    // Si acabamos de cambiar de pestaña, no ocultar durante un corto periodo
-    if (now < ignoreScrollUntil.value) {
-      isHidden.value = false;
-    } else {
-      // Lógica de ocultación: ocultar solo al desplazarse hacia arriba con un umbral
-      const hideThreshold = 12; // px
-      const minScrollForHide = Math.max(100, tabsHeight.value);
-
-      if (scrollDirection === 'up' && delta > hideThreshold && currentScrollY > minScrollForHide) {
-        isHidden.value = true;
-      } else if (scrollDirection === 'down' && delta > 0) {
-        isHidden.value = false;
+    // Decidir sticky en base a la posición original en el documento
+    if (currentScrollY >= initialTop.value) {
+      if (!isSticky.value) {
+        isSticky.value = true;
+        setRootTabsHeightVar();
+        // al activarse, fijar límites actuales
+        updateStickyBoundsFromElement((tabsContainer.value?.parentElement as HTMLElement) || tabsContainer.value!);
       }
+
+      // Si acabamos de cambiar de pestaña, no ocultar durante un corto periodo
+      if (now < ignoreScrollUntil.value) {
+        isHidden.value = false;
+      } else {
+        // Lógica de ocultación: ocultar solo al desplazarse hacia arriba con un umbral
+        const hideThreshold = 12; // px
+        const minScrollForHide = Math.max(100, tabsHeight.value);
+
+        if (scrollDirection === 'up' && delta > hideThreshold && currentScrollY > minScrollForHide) {
+          isHidden.value = true;
+        } else if (scrollDirection === 'down' && delta > 0) {
+          isHidden.value = false;
+        }
+      }
+    } else {
+      if (isSticky.value) {
+        isSticky.value = false;
+        isHidden.value = false;
+        setRootTabsHeightVar();
+      }
+      // Mientras no sea sticky, actualizamos los límites tomando su posición real
+      updateStickyBoundsFromElement(tabsContainer.value!);
     }
-  } else {
-    if (isSticky.value) {
-      isSticky.value = false;
-      isHidden.value = false;
-      setRootTabsHeightVar();
-    }
-    // Mientras no sea sticky, actualizamos los límites tomando su posición real
-    updateStickyBoundsFromElement(tabsContainer.value);
-  }
-  
-  lastScrollY.value = currentScrollY;
+    
+    lastScrollY.value = currentScrollY;
+  });
 };
 
 onMounted(() => {
   if (tabsContainer.value) {
     computeInitialTop();
   }
+  
+  // Cargar estadísticas del usuario para determinar visibilidad de pestañas
+  feedStore.loadUserStats();
   
   window.addEventListener('scroll', handleScroll, { passive: true });
   window.addEventListener('resize', () => {
@@ -210,6 +248,8 @@ onUnmounted(() => {
   border-radius: 12px 12px 0 0;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  height: 56px; /* Altura fija para prevenir CLS */
+  min-height: 56px;
   transition: transform 0.3s ease;
   z-index: 10;
 }

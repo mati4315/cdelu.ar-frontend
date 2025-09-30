@@ -405,10 +405,9 @@ onMounted(() => {
   lastScrollY = window.scrollY;
   isAtTop.value = lastScrollY < 50;
   
-  // Inicializar configuración de video si es administrador
-  if (authStore.user?.rol === 'administrador') {
+  // Inicializar configuración de video para TODOS los usuarios
+  // Esto permite que el estado global se aplique a todos
     videoStore.initializeVideoStore();
-  }
 });
 
 onUnmounted(() => {
@@ -421,9 +420,11 @@ onUnmounted(() => {
   max-width: 1200px;
 }
 
-/* Forzar altura del header a coincidir con la de feed-tabs cuando esté definida */
+/* Altura fija del header para prevenir CLS */
 header {
-  height: var(--feed-tabs-height, 64px);
+  height: 64px; /* Altura fija para evitar layout shifts */
+  min-height: 64px;
+  max-height: 64px;
   display: flex;
   align-items: center; /* Centrar verticalmente contenido dentro del header */
   left: 0;

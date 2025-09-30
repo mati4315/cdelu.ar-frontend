@@ -487,11 +487,25 @@ const loadProfile = async () => {
           website: undefined
         };
         
-        const publicStatsData = {
+        // ✅ NUEVO: Cargar estadísticas reales para usuario actual
+        let publicStatsData = {
           followers_count: 0,
           following_count: 0,
           posts_count: profileStore.myPosts.length || 0
         };
+        
+        try {
+          // Para usuario actual, SÍ podemos usar getMyStats() porque son TUS estadísticas
+          const backendStats = await followService.getMyStats();
+          console.log(`📊 [PUBLIC PROFILE] Estadísticas reales del usuario actual (propias):`, backendStats);
+          publicStatsData = {
+            followers_count: backendStats.followers_count || 0,
+            following_count: backendStats.following_count || 0,
+            posts_count: backendStats.posts_count || profileStore.myPosts.length || 0
+          };
+        } catch (statsError) {
+          console.warn(`⚠️ [PUBLIC PROFILE] Error obteniendo estadísticas reales, usando valores por defecto:`, statsError);
+        }
         
         // Asignar usando las acciones del store
         followStore.$patch({
@@ -587,12 +601,36 @@ const loadProfile = async () => {
           user_id: foundUser.id
         }));
         
-        // Estadísticas basadas en datos reales
-        const feedBasedStats = {
+        // Estadísticas híbridas: usar datos del backend si están disponibles
+        let feedBasedStats = {
           followers_count: 0,
           following_count: 0,
           posts_count: userPosts.length
         };
+        
+        // ✅ NUEVO: Intentar obtener estadísticas reales DEL USUARIO DEL PERFIL (no mías)
+        try {
+          // IMPORTANTE: Intentar obtener perfil público completo que incluya estadísticas
+          const publicProfile = await followService.getPublicProfile(foundUser.username);
+          if (publicProfile?.stats) {
+            console.log(`📊 [PUBLIC PROFILE] Estadísticas del perfil público obtenidas:`, publicProfile.stats);
+            feedBasedStats = {
+              followers_count: publicProfile.stats.followers_count || 0,
+              following_count: publicProfile.stats.following_count || 0,
+              posts_count: publicProfile.stats.posts_count || userPosts.length
+            };
+          } else {
+            console.log(`⚠️ [PUBLIC PROFILE] Perfil público sin estadísticas, usando conteo local`);
+          }
+        } catch (statsError) {
+          console.warn(`⚠️ [PUBLIC PROFILE] No se pudo obtener perfil público completo, usando conteo local:`, statsError);
+          // Fallback: contar posts locales y usar 0 para seguidores/siguiendo
+          feedBasedStats = {
+            followers_count: 0,
+            following_count: 0,
+            posts_count: userPosts.length
+          };
+        }
         
         // Asignar datos al store
         followStore.$patch({
@@ -776,7 +814,7 @@ const formatWebsite = (url: string): string => {
 const maxDescriptionLength = 200; // Longitud máxima antes de truncar
 
 const needsReadMore = (description: string): boolean => {
-  return description && description.length > maxDescriptionLength;
+  return Boolean(description) && String(description).length > maxDescriptionLength;
 };
 
 const getTruncatedContent = (description: string): string => {

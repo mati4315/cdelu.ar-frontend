@@ -5,9 +5,13 @@
     :style="{ width: `${size}px`, height: `${size}px` }"
   >
     <img 
-      :src="imageUrl" 
+      :src="getOptimizedImageUrl(imageUrl, 'small')" 
+      :srcset="generateSrcSet(imageUrl)"
+      :sizes="generateSizes('avatar')"
       :alt="user?.nombre || 'Usuario'"
       class="avatar-image"
+      loading="lazy"
+      decoding="async"
       @error="handleImageError"
       @load="handleImageLoad"
     />
@@ -21,6 +25,7 @@
 import { computed, ref } from 'vue';
 import { User } from '../../types/api';
 import { profileService } from '../../services/profileService';
+import { getOptimizedImageUrl, generateSrcSet, generateSizes } from '@/utils/imageOptimization';
 
 interface Props {
   user?: User | null;

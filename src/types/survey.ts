@@ -11,7 +11,9 @@ export interface SurveyOption {
 export interface Survey {
   id: number;
   question: string;
-  status: 'active' | 'inactive' | 'expired';
+  title?: string; // Campo opcional para compatibilidad
+  description?: string; // Campo opcional para compatibilidad
+  status: 'active' | 'inactive' | 'expired' | 'completed';
   is_multiple_choice: boolean;
   max_votes_per_user: number;
   total_votes: number;

@@ -54,6 +54,12 @@
       <p class="text-lg text-gray-600 dark:text-gray-300">No se encontró la noticia.</p>
     </div>
   </div>
+
+  <!-- Modal de invitación a login -->
+  <LoginPromptModal
+    :is-open="showLoginPrompt"
+    @close="closeLoginPrompt"
+  />
 </template>
 
 <script setup lang="ts">
@@ -66,6 +72,7 @@ import { useTokenValidation } from '@/composables/useTokenValidation';
 import type { News, Comment } from '@/types/api';
 import type { FeedType } from '@/types/feed';
 import CommentSection from './CommentSection.vue';
+import LoginPromptModal from '@/components/ui/LoginPromptModal.vue';
 
 const props = defineProps<{
   id: string | number; // Viene de la ruta como string
@@ -87,6 +94,7 @@ const commentsForThisNews = computed<Comment[]>(() => newsStore.comments.filter(
 
 // Estado del like - obtener del feed store
 const feedItem = ref<any>(null);
+const showLoginPrompt = ref(false);
 const likedLocally = computed(() => {
   const liked = feedItem.value?.is_liked || false;
   return liked;
@@ -117,12 +125,22 @@ async function fetchData() {
 }
 
 const handleLike = async () => {
-  if (!isAuthenticated.value || !ensureValidToken()) return;
+  if (!isAuthenticated.value) {
+    console.log('⚠️ [NEWS DETAIL] Usuario no autenticado - mostrando modal de login');
+    showLoginPrompt.value = true;
+    return;
+  }
+  
+  if (!ensureValidToken()) return;
   if (!feedItem.value?.id) return;
   try {
     const response = await feedStore.toggleLike(feedItem.value.id);
     feedItem.value = { ...feedItem.value, is_liked: response.liked, likes_count: response.likes_count };
   } catch {}
+};
+
+const closeLoginPrompt = () => {
+  showLoginPrompt.value = false;
 };
 
 function formatDate(dateString: string): string {

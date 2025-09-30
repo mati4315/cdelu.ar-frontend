@@ -1,5 +1,5 @@
 <template>
-  <article class="feed-item" :class="itemTypeClass">
+  <article class="feed-item" :class="itemTypeClass" style="min-height: 180px; contain: layout;">
     <!-- Header del item -->
     <header class="feed-item-header">
       <div class="item-meta">
@@ -9,9 +9,13 @@
         <div v-if="item.user_name && item.user_id" class="author-info">
           <img 
             v-if="item.user_profile_picture"
-            :src="getFullImageUrl(item.user_profile_picture)"
+            :src="getOptimizedImageUrl(getFullImageUrl(item.user_profile_picture), 'small')"
+            :srcset="generateSrcSet(getFullImageUrl(item.user_profile_picture))"
+            :sizes="generateSizes('avatar')"
             :alt="`Avatar de ${item.user_name}`"
             class="author-avatar"
+            loading="lazy"
+            decoding="async"
             @error="handleAvatarError"
           />
           <div 
@@ -70,7 +74,7 @@
       
       <!-- Descripción con leer más para noticias -->
       <div v-if="item.type === 1" class="item-description-container">
-        <p class="item-description">
+        <p class="item-description" style="min-height: 3em; contain: layout;">
           {{ isExpanded ? item.descripcion : truncatedDescription }}
           <button 
             v-if="needsReadMore" 
@@ -84,7 +88,7 @@
       
       <!-- Para posts de comunidad, mantener diseño original -->
       <template v-else>
-        <p class="item-description">
+        <p class="item-description" style="min-height: 3em; contain: layout;">
           {{ isExpanded ? props.item.descripcion : truncatedDescription }}
           <button 
             v-if="needsReadMore" 
@@ -179,6 +183,12 @@
       @close="closeImageModal"
     />
   </Teleport>
+
+  <!-- Modal de invitación a login -->
+  <LoginPromptModal
+    :is-open="showLoginPrompt"
+    @close="closeLoginPrompt"
+  />
 </template>
 
 <script setup lang="ts">
@@ -188,7 +198,9 @@ import type { FeedItemProps, FeedItemEmits } from '@/types/feed';
 import { useFeedStore } from '@/store/feedStore';
 import { useAuth } from '@/composables/useAuth';
 import { profileService } from '@/services/profileService';
+import { getOptimizedImageUrl, generateSrcSet, generateSizes } from '@/utils/imageOptimization';
 import ImageViewerModal from '@/components/ui/ImageViewerModal.vue';
+import LoginPromptModal from '@/components/ui/LoginPromptModal.vue';
 
 interface Props extends FeedItemProps {}
 
@@ -210,6 +222,7 @@ const imageError = ref(false);
 const isLikeLoading = ref(false);
 const isExpanded = ref(false);
 const showImageModal = ref(false);
+const showLoginPrompt = ref(false);
 
 // Computed properties - usar el estado del servidor
 const isLiked = computed(() => props.item.is_liked || false);
@@ -415,6 +428,10 @@ const closeImageModal = () => {
   showImageModal.value = false;
 };
 
+const closeLoginPrompt = () => {
+  showLoginPrompt.value = false;
+};
+
 const handleLike = async () => {
   if (isLikeLoading.value) return; // Prevenir clicks múltiples
   
@@ -423,7 +440,8 @@ const handleLike = async () => {
   debugAuth();
   
   if (!isAuthenticated.value) {
-    console.warn('⚠️ [FEEDITEM] Usuario no autenticado - like cancelado');
+    console.log('⚠️ [FEEDITEM] Usuario no autenticado - mostrando modal de login');
+    showLoginPrompt.value = true;
     return;
   }
   

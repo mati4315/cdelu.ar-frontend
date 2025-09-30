@@ -63,7 +63,7 @@
           </div>
           <div class="stat-item">
             <span class="stat-label text-gray-600">Finaliza:</span>
-            <span class="stat-value font-semibold">{{ formatEndDate(lotteryData.end_date) }}</span>
+            <span class="stat-value font-semibold">{{ formatEndDate(lotteryData.end_date || '') }}</span>
           </div>
         </div>
 

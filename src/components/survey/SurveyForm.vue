@@ -319,7 +319,7 @@ onMounted(() => {
       max_votes_per_user: props.survey.max_votes_per_user,
       duration_hours: durationHours,
       duration_minutes: durationMinutes,
-      status: props.survey.status
+      status: props.survey.status === 'expired' ? 'inactive' : props.survey.status as 'active' | 'inactive' | 'completed'
     };
   }
 });

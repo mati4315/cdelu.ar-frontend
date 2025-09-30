@@ -3,6 +3,7 @@
 
 import { defineStore } from 'pinia';
 import { feedService } from '@/services/feedService';
+import { followService } from '@/services/followService';
 import { globalNotifications } from '@/composables/useNotifications';
 import type { 
   FeedState, 
@@ -11,7 +12,8 @@ import type {
   FeedParams, 
   FeedStats,
   TabPagination,
-  FeedType
+  FeedType,
+  UserStats
 } from '@/types/feed';
 
 export const useFeedStore = defineStore('feed', {
@@ -20,6 +22,7 @@ export const useFeedStore = defineStore('feed', {
     allContent: [],
     newsContent: [],
     communityContent: [],
+    followingContent: [],
     
     // Estado de UI
     currentTab: 'todo',
@@ -30,11 +33,20 @@ export const useFeedStore = defineStore('feed', {
     pagination: {
       todo: { page: 1, hasMore: true, total: 0 },
       noticias: { page: 1, hasMore: true, total: 0 },
-      comunidad: { page: 1, hasMore: true, total: 0 }
+      comunidad: { page: 1, hasMore: true, total: 0 },
+      seguidores: { page: 1, hasMore: true, total: 0 }
     },
     
     // Estadísticas
     stats: null,
+    
+    // Estadísticas del usuario actual
+    userStats: {
+      following_count: 0,
+      followers_count: 0,
+      posts_count: 0,
+      loading: false
+    },
     
     // Manejo de errores
     error: null,
@@ -43,21 +55,24 @@ export const useFeedStore = defineStore('feed', {
     isInitialized: {
       todo: false,
       noticias: false,
-      comunidad: false
+      comunidad: false,
+      seguidores: false
     },
     
     // Tiempo de última actualización
     lastFetchTime: {
       todo: null,
       noticias: null,
-      comunidad: null
+      comunidad: null,
+      seguidores: null
     },
     
     // Sets para evitar duplicados
     itemIds: {
       todo: new Set<number>(),
       noticias: new Set<number>(),
-      comunidad: new Set<number>()
+      comunidad: new Set<number>(),
+      seguidores: new Set<number>()
     }
   }),
 
@@ -68,6 +83,7 @@ export const useFeedStore = defineStore('feed', {
         case 'todo': return state.allContent;
         case 'noticias': return state.newsContent;
         case 'comunidad': return state.communityContent;
+        case 'seguidores': return state.followingContent;
         default: return state.allContent;
       }
     },
@@ -81,7 +97,8 @@ export const useFeedStore = defineStore('feed', {
     hasContent: (state): boolean => {
       const content = state.currentTab === 'todo' ? state.allContent :
                      state.currentTab === 'noticias' ? state.newsContent :
-                     state.communityContent;
+                     state.currentTab === 'comunidad' ? state.communityContent :
+                     state.followingContent;
       return content.length > 0;
     },
     
@@ -108,6 +125,38 @@ export const useFeedStore = defineStore('feed', {
         noticias: state.stats.by_type.news.count,
         comunidad: state.stats.by_type.community.count
       };
+    },
+    
+    // Verificar si debe mostrar la pestaña de seguidores
+    shouldShowFollowingTab: (state) => {
+      console.log(`🔍 [FEED STORE] shouldShowFollowingTab - following_count: ${state.userStats.following_count}`);
+      return state.userStats.following_count > 0;
+    },
+    
+    // Obtener pestañas visibles dinámicamente
+    visibleTabs: (state) => {
+      const allTabs = [
+        { key: 'todo', label: 'Todo', icon: '🗞️', description: 'Noticias y comunidad' },
+        { key: 'noticias', label: 'Noticias', icon: '📰', description: 'Solo noticias' },
+        { key: 'comunidad', label: 'Comunidad', icon: '👥', description: 'Solo comunidad' }
+      ];
+      
+      console.log(`🔍 [FEED STORE] visibleTabs - userStats:`, state.userStats);
+      
+      // Solo agregar pestaña de seguidores si el usuario sigue a alguien
+      if (state.userStats.following_count > 0) {
+        console.log(`✅ [FEED STORE] Agregando pestaña Siguiendo - following_count: ${state.userStats.following_count}`);
+        allTabs.push({
+          key: 'seguidores',
+          label: 'Siguiendo',
+          icon: '💙',
+          description: 'Contenido de usuarios seguidos'
+        });
+      } else {
+        console.log(`❌ [FEED STORE] NO agregando pestaña Siguiendo - following_count: ${state.userStats.following_count}`);
+      }
+      
+      return allTabs;
     }
   },
 
@@ -311,12 +360,45 @@ export const useFeedStore = defineStore('feed', {
       }
     },
 
+    // Cargar estadísticas del usuario
+    async loadUserStats() {
+      console.log('📊 [FEED STORE] loadUserStats called');
+      
+      this.userStats.loading = true;
+      
+      try {
+        const stats = await followService.getMyStats();
+        this.userStats.following_count = stats.following_count;
+        this.userStats.followers_count = stats.followers_count;
+        this.userStats.posts_count = stats.posts_count;
+        
+        console.log('✅ [FEED STORE] Estadísticas de usuario cargadas:', this.userStats);
+        
+        // Si el usuario estaba en la pestaña de seguidores pero ya no sigue a nadie,
+        // redirigir a la pestaña de "Todo"
+        if (this.currentTab === 'seguidores' && stats.following_count === 0) {
+          console.log('🔄 [FEED STORE] Usuario no sigue a nadie, cambiando a pestaña Todo');
+          await this.switchTab('todo');
+        }
+        
+      } catch (error: any) {
+        console.error('❌ [FEED STORE] Error al cargar estadísticas de usuario:', error);
+        // En caso de error, mantener valores por defecto (0)
+        this.userStats.following_count = 0;
+        this.userStats.followers_count = 0;
+        this.userStats.posts_count = 0;
+      } finally {
+        this.userStats.loading = false;
+      }
+    },
+
     // Refrescar contenido actual
     async refresh() {
       console.log(`🔄 [FEED STORE] refresh called for tab: ${this.currentTab}`);
       await Promise.all([
         this.loadFeed(this.currentTab, true),
-        this.loadStats()
+        this.loadStats(),
+        this.loadUserStats()
       ]);
     },
 
@@ -326,6 +408,7 @@ export const useFeedStore = defineStore('feed', {
         case 'todo': return this.allContent;
         case 'noticias': return this.newsContent;
         case 'comunidad': return this.communityContent;
+        case 'seguidores': return this.followingContent;
         default: return this.allContent;
       }
     },
@@ -345,6 +428,9 @@ export const useFeedStore = defineStore('feed', {
           break;
         case 'comunidad': 
           this.communityContent = merged;
+          break;
+        case 'seguidores': 
+          this.followingContent = merged;
           break;
       }
       
@@ -367,6 +453,9 @@ export const useFeedStore = defineStore('feed', {
           break;
         case 'comunidad': 
           this.communityContent.push(...mergedNewItems);
+          break;
+        case 'seguidores': 
+          this.followingContent.push(...mergedNewItems);
           break;
       }
       
@@ -402,6 +491,7 @@ export const useFeedStore = defineStore('feed', {
       this.allContent = [];
       this.newsContent = [];
       this.communityContent = [];
+      this.followingContent = [];
       
       // Resetear paginación
       Object.keys(this.pagination).forEach(tab => {
@@ -412,14 +502,16 @@ export const useFeedStore = defineStore('feed', {
       this.isInitialized = {
         todo: false,
         noticias: false,
-        comunidad: false
+        comunidad: false,
+        seguidores: false
       };
       
       // Resetear tiempos
       this.lastFetchTime = {
         todo: null,
         noticias: null,
-        comunidad: null
+        comunidad: null,
+        seguidores: null
       };
       
       // Limpiar IDs
@@ -444,7 +536,7 @@ export const useFeedStore = defineStore('feed', {
       }
       
       // Actualizar en todas las pestañas donde aparezca el item
-      [this.allContent, this.newsContent, this.communityContent].forEach(content => {
+      [this.allContent, this.newsContent, this.communityContent, this.followingContent].forEach(content => {
         const item = content.find(item => item.id === itemId);
         if (item) {
           item.likes_count = newLikesCount;
@@ -465,7 +557,7 @@ export const useFeedStore = defineStore('feed', {
       console.log(`💬 [FEED STORE] updateItemComments - id: ${itemId}, comments: ${newCommentsCount}`);
       
       // Actualizar en todas las pestañas donde aparezca el item
-      [this.allContent, this.newsContent, this.communityContent].forEach(content => {
+      [this.allContent, this.newsContent, this.communityContent, this.followingContent].forEach(content => {
         const item = content.find(item => item.id === itemId);
         if (item) {
           item.comments_count = newCommentsCount;

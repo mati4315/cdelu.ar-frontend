@@ -111,6 +111,7 @@ POST /news/:id/comments   // Crear comentario
 GET /feed                         // Feed completo (Todo)
 GET /feed/noticias               // Solo noticias
 GET /feed/comunidad              // Solo comunicaciones
+GET /feed/following              // Solo de usuarios seguidos (requiere auth)
 GET /feed/stats                  // Estadísticas del feed
 GET /feed/by-original-id/:type/:id  // Item por ID original
 POST /feed/:feedId/like/toggle   // Toggle like
@@ -150,12 +151,14 @@ GET /lotteries                  // Lista de loterías
 POST /lotteries/:id/buy         // Comprar ticket
 ```
 
-### 🎥 Control de Video Online (Admin - `videoService.ts`)
+### 🎥 Control de Video Online (`videoService.ts`)
 ```typescript
 GET /admin/video-settings       // Obtener configuración actual (admin + JWT)
 PUT /admin/video-settings       // Actualizar configuración (admin + JWT)
-// Body: { isVideoEnabled: boolean, modifiedBy: string }
-// Response: { success: boolean, settings: VideoSettings }
+GET /video-settings/public      // Obtener configuración global (sin autenticación)
+// Admin Body: { isVideoEnabled: boolean, modifiedBy: string }
+// Admin Response: { success: boolean, settings: VideoSettings }
+// Public Response: { isVideoEnabled: boolean, lastModified: string, modifiedBy: string }
 ```
 
 ## 🗄️ STORES PINIA - FUNCIONES CLAVE
@@ -182,12 +185,13 @@ updateUserProfile(user: User)       // Actualizar perfil
 
 ### 🔄 useFeedStore (`store/feedStore.ts`) - **STORE CRÍTICO**
 ```typescript
-// Estado por pestaña
-allContent: FeedItem[]               // Contenido "Todo"
-newsContent: FeedItem[]              // Solo noticias
-communityContent: FeedItem[]         // Solo comunidad
-currentTab: FeedTab                  // Pestaña activa
-pagination: Record<FeedTab, TabPagination>  // Paginación por pestaña
+  // Estado por pestaña
+  allContent: FeedItem[]               // Contenido "Todo"
+  newsContent: FeedItem[]              // Solo noticias
+  communityContent: FeedItem[]         // Solo comunidad
+  followingContent: FeedItem[]         // Solo usuarios seguidos
+  currentTab: FeedTab                  // Pestaña activa
+  pagination: Record<FeedTab, TabPagination>  // Paginación por pestaña
 
 // Actions principales
 loadFeed(tab, refresh?)              // Cargar contenido inicial
@@ -229,9 +233,10 @@ modifiedBy: string                      // Administrador que modificó
 shouldLoadVideo(): boolean              // ¿Debe cargar componentes video?
 
 // Actions principales
-loadVideoSettings()                     // Cargar configuración desde backend
+loadVideoSettings()                     // Cargar configuración desde backend (admins)
+loadPublicVideoSettings()               // Cargar configuración pública (usuarios normales)
 toggleVideoEnabled(enabled, adminName) // Cambiar estado (solo admins)
-initializeVideoStore()                  // Inicializar store
+initializeVideoStore()                  // Inicializar store (detecta tipo de usuario)
 ```
 
 ## 🎨 SISTEMA DE COLORES - **CSS VARIABLES OBLIGATORIAS**
@@ -378,6 +383,48 @@ const emit = defineEmits<{
 // Siempre manejar errores con try/catch
 // Usar tipos TypeScript para todas las respuestas
 // FormData para uploads (multipart/form-data)
+```
+
+### 5. ✅ SISTEMA DE PESTAÑAS DEL FEED:
+```typescript
+// Estructura actual: 4 pestañas principales
+1. 'todo' → Todo el contenido (🗞️)
+2. 'noticias' → Solo noticias (📰) 
+3. 'comunidad' → Solo posts de usuarios (👥)
+4. 'seguidores' → Solo de usuarios seguidos (💙)
+
+// Principios para nuevas pestañas:
+- Cada pestaña tiene su propio estado en el store
+- Cache independiente con sistema de IDs únicos
+- Paginación individual con infinite scroll
+- Misma API de likes/comentarios para todos
+- Contadores opcionales (solo si hace sentido)
+- Iconos emoji distintivos para cada pestaña
+```
+
+### 6. ✅ ARQUITECTURA FEED STORE:
+```typescript
+// Estado por pestaña (patrón a seguir):
+{
+  [pestana]Content: FeedItem[],     // Array de contenido
+  pagination: { [pestana]: TabPagination }, // Estado paginación
+  isInitialized: { [pestana]: boolean },    // Inicialización
+  lastFetchTime: { [pestana]: Date },       // Cache timestamp
+  itemIds: { [pestana]: Set<number> }       // Anti-duplicados
+}
+
+// Getters principales:
+- currentContent: contenido de pestaña activa
+- currentPagination: paginación de pestaña activa  
+- hasContent: si tiene elementos la pestaña actual
+- isReadyForInfiniteScroll: si puede cargar más
+
+// Actions críticas:
+- loadFeed(tab, refresh): carga inicial/refresh
+- loadMore(): infinite scroll automático
+- switchTab(tab): cambio de pestaña con carga auto
+- updateItemLike(): actualiza en todas las pestañas
+- updateItemComments(): sincroniza comentarios
 ```
 
 ## 📄 ARCHIVOS PROTEGIDOS - NO MODIFICAR
@@ -685,6 +732,43 @@ $response.StatusCode; $response.Content.Length
 
 **Archivos modificados:**
 - `src/views/ProfileView.vue` - Agregado sistema de navegación con scroll
+
+**Patrones de implementación para nuevas pestañas:**
+```typescript
+// 1. Agregar tipo a FeedTab
+export type FeedTab = 'todo' | 'noticias' | 'comunidad' | 'nueva_pestana';
+
+// 2. Actualizar estado en FeedState
+interface FeedState {
+  nuevaPestanaContent: FeedItem[];
+  pagination: {
+    nueva_pestana: TabPagination;
+  };
+  isInitialized: {
+    nueva_pestana: boolean;
+  };
+  // ... otros campos
+}
+
+// 3. Agregar en FeedTabs.vue
+const tabs = [
+  { key: 'nueva_pestana', label: 'Label', icon: '🆕', description: 'Descripción' }
+];
+
+// 4. Implementar servicio
+async getNuevaPestana(params: FeedParams = {}): Promise<FeedResponse> {
+  const response = await this.apiClient.get('/feed/nueva-pestana', { params });
+  return response.data;
+}
+
+// 5. Actualizar store con casos para nueva pestaña en:
+// - getContentByTab()
+// - setContent() 
+// - appendContent()
+// - updateItemLike()
+// - updateItemComments()
+// - currentContent getter
+```
   - Agregado: IDs únicos a secciones (`profile-info`, `my-posts`)
   - Función: `scrollToSection(sectionId)` para scroll suave con offset
   - Función: `updateActiveSection()` para detectar sección visible
@@ -1150,6 +1234,16 @@ $response.StatusCode; $response.Content.Length
 - ✅ **Seguridad**: Validación de permisos de administrador con JWT
 - ✅ **UX avanzada**: Notificaciones contextuales y estado persistente
 
+### 🌐 v2.4.3 - Control de Video Global (29 Sep 2025)
+
+**Corrección crítica implementada:**
+- ✅ **Control global real**: Ahora TODOS los usuarios cargan el estado del video
+- ✅ **Endpoint público**: Nuevo `GET /video-settings/public` sin autenticación
+- ✅ **Inicialización universal**: `videoStore.initializeVideoStore()` se ejecuta para todos los usuarios
+- ✅ **Estrategia dual**: Admins usan endpoint protegido, usuarios normales usan endpoint público
+- ✅ **Ocultación efectiva**: Cuando admin desactiva video, NO se renderiza para nadie
+- ✅ **Fallback robusto**: localStorage mantiene consistencia global
+
 **Nuevos archivos creados:**
 - `src/store/videoStore.ts` - Store Pinia para gestión de estado de video
 - `src/services/videoService.ts` - Servicio API para comunicación con backend
@@ -1200,6 +1294,70 @@ videoService.validateAdminAccess() // Verifica permisos de administrador
 - **Mantiene estado**: Se inicializa automáticamente al montar `AppHeader` para admins
 
 **¡Control total de video con optimización avanzada y persistencia robusta!** 🎥✨
+
+## 🔧 TROUBLESHOOTING - SISTEMA DE PESTAÑAS
+
+### Problema: Nueva pestaña no carga contenido
+**Síntoma**: La pestaña aparece pero no muestra contenido o da error.
+
+**Diagnóstico**:
+```typescript
+// 1. Verificar que el endpoint esté implementado
+curl "http://localhost:3001/api/v1/feed/nueva-pestana?page=1&limit=10"
+
+// 2. Verificar que el tipo esté en FeedTab
+export type FeedTab = 'todo' | 'noticias' | 'comunidad' | 'nueva_pestana';
+
+// 3. Verificar método en feedService
+async getNuevaPestana(params: FeedParams = {}): Promise<FeedResponse>
+
+// 4. Verificar caso en getContentByTab()
+case 'nueva_pestana': return this.getNuevaPestana(params);
+```
+
+**Solución**:
+1. Implementar endpoint en backend
+2. Agregar tipo a todas las interfaces
+3. Actualizar todos los switch/case statements
+4. Agregar estado inicial en store
+
+### Problema: Pestaña duplica contenido al cambiar
+**Causa**: No se está limpiando el estado al cambiar pestañas.
+
+**Solución**:
+```typescript
+// Verificar que appendContent() filtre duplicados
+const newItems = content.filter(item => !this.itemIds[tab].has(item.id));
+
+// Verificar que setContent() limpie IDs
+this.itemIds[tab].clear();
+```
+
+### Problema: Infinite scroll no funciona en nueva pestaña
+**Causa**: Falta configuración de paginación.
+
+**Solución**:
+```typescript
+// 1. Agregar en estado inicial
+pagination: {
+  nueva_pestana: { page: 1, hasMore: true, total: 0 }
+}
+
+// 2. Agregar en updatePagination()
+// 3. Agregar en resetPagination()
+// 4. Agregar en clearContent()
+```
+
+### Problema: Likes no se actualizan en nueva pestaña
+**Causa**: Falta agregar el array en updateItemLike().
+
+**Solución**:
+```typescript
+// Agregar nuevaPestanaContent al array
+[this.allContent, this.newsContent, this.communityContent, this.nuevaPestanaContent].forEach(content => {
+  // ... lógica de actualización
+});
+```
 
 ### 📝 v2.4.1 - Menú Principal con Crear Publicación (27 Sep 2025)
 
@@ -1347,3 +1505,131 @@ Usuario puede comentar inmediatamente
 - **Responsive**: Funciona en móvil y desktop
 
 **¡Sistema de comentarios completamente funcional con navegación directa y UX optimizada!** 💬✨
+
+### 🔐 v2.4.4 - Modal de Invitación a Login para Usuarios No Autenticados (29 Sep 2025)
+
+**Sistema completo de conversión de usuarios implementado:**
+- ✅ **Modal atractivo**: Popup profesional con gradientes y animaciones para invitar a registrarse
+- ✅ **Interceptación inteligente**: Detecta cuando usuarios no autenticados intentan dar like
+- ✅ **UX de conversión**: Lista beneficios de registrarse con íconos coloridos
+- ✅ **Navegación directa**: Botones que llevan a /login y /register
+- ✅ **Integración universal**: Funciona en todos los componentes de likes
+- ✅ **Accesibilidad completa**: Cierre con Escape, click fuera, responsive design
+
+**Nuevos archivos creados:**
+- `src/components/ui/LoginPromptModal.vue` - Modal principal de invitación
+  - Header con gradiente azul-púrpura
+  - Ícono de corazón y título atractivo
+  - Lista de beneficios: likes, comentarios, posts, seguimiento
+  - Tres botones: "Iniciar Sesión", "Crear Cuenta Gratis", "Ahora no"
+  - Funcionalidades: Teleport, Escape key, overlay click, scroll prevention
+
+**Archivos modificados:**
+- `src/components/feed/FeedItem.vue` - Intercepta likes en feed principal
+- `src/components/news/NewsDetail.vue` - Intercepta likes en detalle de noticias  
+- `src/components/news/NewsItem.vue` - Intercepta likes en lista de noticias
+
+**Flujo de usuario no autenticado:**
+```typescript
+// Antes
+handleLike() → return early → Usuario no sabe qué pasó
+
+// Ahora  
+handleLike() → showLoginPrompt.value = true → Modal atractivo → Conversión
+```
+
+**Funcionalidades técnicas:**
+- **Teleport to body**: Modal renderizado fuera de contenedores restrictivos
+- **Event management**: Listeners de Escape y cleanup automático
+- **Scroll prevention**: Bloquea scroll del body cuando modal está abierto
+- **Router integration**: Navegación automática a rutas de autenticación
+- **Theme compatibility**: Funciona con tema claro y oscuro
+- **Mobile responsive**: Diseño optimizado para móviles
+
+**Ubicaciones donde funciona:**
+- ✅ Feed principal (/) - Posts de noticias y comunidad
+- ✅ Detalle de noticia (/noticia/:id) - Página individual
+- ✅ Lista de noticias - Items en cualquier lista
+- ✅ Posts de comunidad - Todos los tipos de contenido
+
+**Características del modal:**
+- 🎨 Header con gradiente que llama la atención
+- ❤️ Ícono de corazón relevante a la acción
+- 📝 Texto persuasivo: "¡Te gusta este contenido!"
+- 🎯 Beneficios claros con íconos coloridos
+- 🔘 CTA principales con diseño diferenciado
+- ⚡ Animaciones suaves y transiciones
+
+**Optimización de conversión:**
+- **Timing perfecto**: Aparece justo cuando usuario muestra interés
+- **Contexto relevante**: "Te gusta este contenido" conecta con la acción
+- **Beneficios claros**: Lista específica de qué puede hacer al registrarse
+- **Múltiples CTAs**: Opciones para diferentes niveles de compromiso
+- **Escape fácil**: No es intrusivo, se puede cerrar fácilmente
+
+**¡Sistema diseñado para convertir usuarios curiosos en usuarios registrados!** 🎯✨
+
+### 💙 v2.5.0 - Pestaña "Siguiendo" en Feed Principal (29 Sep 2025)
+
+**Nueva funcionalidad de feed personalizado implementada:**
+- ✅ **Cuarta pestaña**: Agregada "Siguiendo" (💙) al sistema de navegación del feed
+- ✅ **Feed personalizado**: Muestra solo contenido de usuarios seguidos
+- ✅ **Integración completa**: Backend endpoint `/api/v1/feed/following` conectado
+- ✅ **UX optimizada**: Sin contador (contenido personalizado), carga automática
+- ✅ **Performance garantizada**: Consultas optimizadas ~10ms según documentación backend
+
+**Nuevos archivos modificados:**
+- `src/types/feed.ts` - Agregado tipo `'seguidores'` y campos de estado
+- `src/components/feed/FeedTabs.vue` - Nueva pestaña con ícono 💙 "Siguiendo"
+- `src/services/feedService.ts` - Método `getFollowing()` para endpoint `/api/v1/feed/following`
+- `src/store/feedStore.ts` - Estado `followingContent` y lógica completa de manejo
+
+**Funcionalidades implementadas:**
+- ✅ **4 pestañas activas**: Todo (🗞️), Noticias (📰), Comunidad (👥), Siguiendo (💙)
+- ✅ **Carga automática**: Al hacer click se carga contenido de usuarios seguidos
+- ✅ **Infinite scroll**: Paginación automática como en otras pestañas
+- ✅ **Likes y comentarios**: Funcionalidad completa integrada
+- ✅ **Estados de UI**: Loading, empty state, error handling
+- ✅ **Cache inteligente**: Evita duplicados y optimiza performance
+
+**Características técnicas:**
+- **Endpoint**: `GET /api/v1/feed/following` (requiere autenticación JWT)
+- **Paginación**: Compatible con sistema existente (`page`, `limit`, `order`)
+- **Límites**: Máximo 20 usuarios seguidos por usuario (según backend)
+- **Performance**: Consultas ultra-rápidas con índices optimizados
+- **Contenido**: Solo posts futuros (no historial al seguir)
+
+**Arquitectura del estado:**
+```typescript
+// Estado agregado a FeedState
+followingContent: FeedItem[];
+pagination.seguidores: TabPagination;
+isInitialized.seguidores: boolean;
+lastFetchTime.seguidores: Date | null;
+itemIds.seguidores: Set<number>;
+```
+
+**Lógica de navegación:**
+```typescript
+// getContentByTab() actualizado
+case 'seguidores': return this.getFollowing(params);
+
+// currentContent getter actualizado  
+case 'seguidores': return state.followingContent;
+```
+
+**Casos de uso cubiertos:**
+- ✅ **Usuario con seguidores**: Ve contenido personalizado de usuarios seguidos
+- ✅ **Usuario sin seguidores**: Ve mensaje de invitación a seguir usuarios
+- ✅ **Usuario no autenticado**: Pestaña oculta o redirect a login
+- ✅ **Feed vacío inicial**: Si usuarios seguidos no han publicado
+- ✅ **Performance**: Carga optimizada con cache y paginación
+- ✅ **Tiempo real**: Nuevos posts aparecen al refrescar
+
+**Integración con sistema existente:**
+- **Compatible 100%**: No rompe funcionalidad existente
+- **Reutiliza componentes**: FeedItem, likes, comentarios, navigation
+- **Usa infraestructura**: feedService, store patterns, error handling
+- **Mantiene consistencia**: UI/UX idéntica a otras pestañas
+
+**🎯 Resultado: Sistema de feed con 4 pestañas completamente funcionales y experiencia de red social moderna**

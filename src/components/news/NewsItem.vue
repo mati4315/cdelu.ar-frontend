@@ -87,6 +87,12 @@
       </div>
     </div>
   </article>
+
+  <!-- Modal de invitación a login -->
+  <LoginPromptModal
+    :is-open="showLoginPrompt"
+    @close="closeLoginPrompt"
+  />
 </template>
 
 <script setup lang="ts">
@@ -94,6 +100,7 @@ import { ref, onMounted } from 'vue';
 import type { News } from '@/types/api';
 import { useFeedStore } from '@/store/feedStore';
 import { useAuth } from '@/composables/useAuth';
+import LoginPromptModal from '@/components/ui/LoginPromptModal.vue';
 
 const props = defineProps<{
   noticia: News;
@@ -107,6 +114,7 @@ const mostrarCompleta = ref(false);
 
 const likedLocally = ref(false);
 const localLikesCount = ref(props.noticia.likes_count || 0);
+const showLoginPrompt = ref(false);
 
 function truncarDescripcion(texto: string): string {
   if (texto.length <= MAX_CHARS_SUMMARY) {
@@ -122,7 +130,8 @@ function toggleMostrarCompleta(): void {
 async function handleLike() {
   // Verificar autenticación
   if (!isAuthenticated.value) {
-    console.warn('⚠️ Usuario no autenticado');
+    console.log('⚠️ [NEWS ITEM] Usuario no autenticado - mostrando modal de login');
+    showLoginPrompt.value = true;
     return;
   }
 
@@ -200,6 +209,10 @@ function formatDate(dateString: string): string {
     return dateString;
   }
 }
+
+const closeLoginPrompt = () => {
+  showLoginPrompt.value = false;
+};
 
 onMounted(() => {
   // TODO: Verificar si el usuario ya dio like a esta noticia

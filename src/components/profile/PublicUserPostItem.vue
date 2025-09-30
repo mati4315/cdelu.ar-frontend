@@ -42,7 +42,7 @@
             :src="getFullImageUrl(post.image_urls[0])"
             :alt="post.titulo"
             class="w-full max-h-96 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-            @click="openImageModal"
+            @click="() => openImageModal(0)"
             @error="handleImageError"
           />
         </div>

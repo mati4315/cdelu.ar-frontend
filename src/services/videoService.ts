@@ -30,10 +30,10 @@ class VideoService {
   }
 
   /**
-   * Obtiene la configuración actual del video
+   * Obtiene la configuración actual del video (requiere permisos de admin)
    */
   async getVideoSettings(): Promise<VideoSettings> {
-    console.log('🎥 [VIDEO SERVICE] Obteniendo configuración de video');
+    console.log('🎥 [VIDEO SERVICE] Obteniendo configuración de video (admin)');
     
     try {
       const response = await axios.get<VideoSettingsResponse>(
@@ -68,6 +68,38 @@ class VideoService {
       }
       
       throw new Error(`Error al obtener configuración de video: ${error.message}`);
+    }
+  }
+
+  /**
+   * Obtiene la configuración pública del video (sin autenticación)
+   * Para que todos los usuarios puedan ver el estado global
+   */
+  async getPublicVideoSettings(): Promise<VideoSettings> {
+    console.log('🎥 [VIDEO SERVICE] Obteniendo configuración pública de video');
+    
+    try {
+      const response = await axios.get<VideoSettingsResponse>(
+        `${this.baseURL}/video-settings/public`
+      );
+
+      console.log('✅ [VIDEO SERVICE] Configuración pública obtenida:', response.data);
+      return response.data;
+      
+    } catch (error: any) {
+      console.error('❌ [VIDEO SERVICE] Error obteniendo configuración pública:', error);
+      
+      // Si es error 404, puede ser que no exista configuración (primera vez)
+      if (error.response?.status === 404) {
+        console.log('📝 [VIDEO SERVICE] No existe configuración pública, usando valores por defecto');
+        return {
+          isVideoEnabled: true,
+          lastModified: new Date().toISOString(),
+          modifiedBy: 'Sistema'
+        };
+      }
+      
+      throw new Error(`Error al obtener configuración pública de video: ${error.message}`);
     }
   }
 

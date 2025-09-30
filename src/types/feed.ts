@@ -9,7 +9,7 @@ export type FeedType = 1 | 2 | 3; // 1=noticias, 2=comunidad, 3=anuncios
 /**
  * Pestañas disponibles en el feed
  */
-export type FeedTab = 'todo' | 'noticias' | 'comunidad';
+export type FeedTab = 'todo' | 'noticias' | 'comunidad' | 'seguidores';
 
 /**
  * Campos disponibles para ordenación
@@ -196,6 +196,23 @@ export interface TabPagination {
 }
 
 /**
+ * Estadísticas del usuario actual
+ */
+export interface UserStats {
+  /** Número de usuarios que sigue */
+  following_count: number;
+  
+  /** Número de seguidores */
+  followers_count: number;
+  
+  /** Número de posts creados */
+  posts_count: number;
+  
+  /** Si está cargando las estadísticas */
+  loading: boolean;
+}
+
+/**
  * Estado completo del store del feed
  */
 export interface FeedState {
@@ -208,6 +225,9 @@ export interface FeedState {
   
   /** Contenido de la pestaña "Comunidad" */
   communityContent: FeedItem[];
+  
+  /** Contenido de la pestaña "Seguidores" */
+  followingContent: FeedItem[];
   
   // Estado de UI
   /** Pestaña actualmente activa */
@@ -225,11 +245,15 @@ export interface FeedState {
     todo: TabPagination;
     noticias: TabPagination;
     comunidad: TabPagination;
+    seguidores: TabPagination;
   };
   
   // Estadísticas
   /** Estadísticas del feed */
   stats: FeedStats | null;
+  
+  /** Estadísticas del usuario actual */
+  userStats: UserStats;
   
   // Manejo de errores
   /** Mensaje de error actual */
@@ -241,6 +265,7 @@ export interface FeedState {
     todo: boolean;
     noticias: boolean;
     comunidad: boolean;
+    seguidores: boolean;
   };
   
   /** Tiempo de última actualización */
@@ -248,6 +273,7 @@ export interface FeedState {
     todo: Date | null;
     noticias: Date | null;
     comunidad: Date | null;
+    seguidores: Date | null;
   };
   
   /** Sets para evitar duplicados */
@@ -255,6 +281,7 @@ export interface FeedState {
     todo: Set<number>;
     noticias: Set<number>;
     comunidad: Set<number>;
+    seguidores: Set<number>;
   };
 }
 
@@ -427,6 +454,9 @@ export interface FeedService {
   
   /** Obtener solo contenido de comunidad */
   getCommunity(params?: FeedParams): Promise<FeedResponse>;
+  
+  /** Obtener feed de usuarios seguidos */
+  getFollowing(params?: FeedParams): Promise<FeedResponse>;
   
   /** Obtener estadísticas */
   getFeedStats(): Promise<FeedStats>;

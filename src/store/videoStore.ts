@@ -4,7 +4,7 @@ import { useNotifications } from '@/composables/useNotifications';
 import { videoService, type VideoSettings } from '@/services/videoService';
 
 export const useVideoStore = defineStore('video', () => {
-  const { globalNotifications } = useNotifications();
+  const globalNotifications = useNotifications();
   
   // Estado
   const isVideoEnabled = ref<boolean>(true); // Por defecto activado
@@ -28,7 +28,7 @@ export const useVideoStore = defineStore('video', () => {
         // Verificar permisos de administrador
         videoService.validateAdminAccess();
         
-        // Cargar desde backend
+        // Cargar desde backend (endpoint de admin)
         const settings = await videoService.getVideoSettings();
         isVideoEnabled.value = settings.isVideoEnabled;
         lastModified.value = settings.lastModified;
@@ -37,7 +37,7 @@ export const useVideoStore = defineStore('video', () => {
         // Sincronizar con localStorage como backup
         localStorage.setItem('videoSettings', JSON.stringify(settings));
         
-        console.log('✅ [VIDEO STORE] Configuración cargada desde backend:', settings);
+        console.log('✅ [VIDEO STORE] Configuración cargada desde backend (admin):', settings);
         
       } catch (backendError: any) {
         console.warn('⚠️ [VIDEO STORE] Error del backend, usando localStorage:', backendError.message);
@@ -68,6 +68,64 @@ export const useVideoStore = defineStore('video', () => {
       
     } catch (error: any) {
       console.error('❌ [VIDEO STORE] Error crítico cargando configuración:', error);
+      
+      // Valores por defecto como último recurso
+      isVideoEnabled.value = true;
+      lastModified.value = new Date().toISOString();
+      modifiedBy.value = 'Sistema';
+      
+      if (globalNotifications?.error) {
+        globalNotifications.error('Error cargando configuración de video');
+      }
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
+  const loadPublicVideoSettings = async (): Promise<void> => {
+    console.log('🎥 [VIDEO STORE] Cargando configuración pública de video');
+    
+    try {
+      isLoading.value = true;
+      
+      try {
+        // Cargar desde endpoint público (sin autenticación)
+        const settings = await videoService.getPublicVideoSettings();
+        isVideoEnabled.value = settings.isVideoEnabled;
+        lastModified.value = settings.lastModified;
+        modifiedBy.value = settings.modifiedBy;
+        
+        // Sincronizar con localStorage como backup
+        localStorage.setItem('videoSettings', JSON.stringify(settings));
+        
+        console.log('✅ [VIDEO STORE] Configuración pública cargada desde backend:', settings);
+        
+      } catch (backendError: any) {
+        console.warn('⚠️ [VIDEO STORE] Error del backend público, usando localStorage:', backendError.message);
+        
+        // Fallback a localStorage si el backend falla
+        const localSettings = localStorage.getItem('videoSettings');
+        if (localSettings) {
+          const settings = JSON.parse(localSettings) as VideoSettings;
+          isVideoEnabled.value = settings.isVideoEnabled;
+          lastModified.value = settings.lastModified;
+          modifiedBy.value = settings.modifiedBy;
+          console.log('✅ [VIDEO STORE] Configuración cargada desde localStorage:', settings);
+        } else {
+          // Valores por defecto si no hay nada
+          console.log('📝 [VIDEO STORE] Usando valores por defecto (público)');
+          isVideoEnabled.value = true;
+          lastModified.value = new Date().toISOString();
+          modifiedBy.value = 'Sistema';
+        }
+        
+        if (globalNotifications?.warning) {
+          globalNotifications.warning('Usando configuración local de video');
+        }
+      }
+      
+    } catch (error: any) {
+      console.error('❌ [VIDEO STORE] Error crítico cargando configuración pública:', error);
       
       // Valores por defecto como último recurso
       isVideoEnabled.value = true;
@@ -166,7 +224,20 @@ export const useVideoStore = defineStore('video', () => {
 
   const initializeVideoStore = async (): Promise<void> => {
     console.log('🎥 [VIDEO STORE] Inicializando store de video');
-    await loadVideoSettings();
+    
+    try {
+      // Verificar si el usuario es administrador
+      videoService.validateAdminAccess();
+      
+      // Si es admin, usar endpoint de administrador  
+      console.log('🎥 [VIDEO STORE] Usuario administrador - usando endpoint admin');
+      await loadVideoSettings();
+      
+    } catch (error: any) {
+      // Si no es admin o falla la validación, usar endpoint público
+      console.log('🎥 [VIDEO STORE] Usuario regular - usando endpoint público');
+      await loadPublicVideoSettings();
+    }
   };
 
   return {
@@ -181,6 +252,7 @@ export const useVideoStore = defineStore('video', () => {
     
     // Actions
     loadVideoSettings,
+    loadPublicVideoSettings,
     toggleVideoEnabled,
     initializeVideoStore
   };

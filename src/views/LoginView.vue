@@ -2,7 +2,7 @@
   <div class="login-view flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 px-4 py-12 transition-colors duration-300">
     <div class="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 md:p-10 rounded-xl shadow-lg dark:shadow-gray-700/50 transition-colors duration-300">
       <div>
-        <img class="mx-auto h-12 w-auto" src="/logo.png" alt="Diario CdelU">
+        <img class="mx-auto h-12 w-auto" :src="logoUrl" alt="Diario CdelU">
         <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-gray-100">
           Inicia sesión en tu cuenta
         </h2>
@@ -70,6 +70,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/store/auth';
+import logoUrl from '/logo.png?url';
 
 const router = useRouter();
 const authStore = useAuthStore();

@@ -70,7 +70,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import Hls from 'hls.js';
+// Lazy import of HLS.js to reduce bundle size
 import { useLiveStore } from '@/store/live';
 import { useLiveStatus } from '@/composables/useLiveStatus';
 
@@ -100,7 +100,7 @@ const permalink = computed(() => {
 });
 
 const videoEl = ref<HTMLVideoElement | null>(null);
-let hls: Hls | null = null;
+let hls: any | null = null;
 const isPlaying = ref(false);
 const muted = ref(true);
 const volume = ref(1);
@@ -108,8 +108,12 @@ const rate = ref(1);
 const rates = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const canPiP = document.pictureInPictureEnabled === true;
 
-function attachHls(): void {
+async function attachHls(): Promise<void> {
   if (!videoEl.value || !hlsUrl.value) return;
+  
+  // Lazy load HLS.js only when needed
+  const { default: Hls } = await import('hls.js');
+  
   if (Hls.isSupported()) {
     hls = new Hls({ autoStartLoad: true });
     hls.loadSource(hlsUrl.value);

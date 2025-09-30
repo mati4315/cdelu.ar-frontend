@@ -41,7 +41,7 @@ export const useFollowStore = defineStore('follow', () => {
   let globalNotifications: any = null;
   try {
     const notificationsComposable = useNotifications();
-    globalNotifications = notificationsComposable.globalNotifications;
+    globalNotifications = notificationsComposable;
   } catch (error) {
     console.warn('⚠️ [FOLLOW STORE] useNotifications no disponible:', error);
   }
@@ -208,6 +208,11 @@ export const useFollowStore = defineStore('follow', () => {
       if (currentProfileStats.value) {
         currentProfileStats.value.followers_count = response.followers_count;
       }
+      
+      // Actualizar estadísticas del feed store para reflejar cambios en pestañas
+      const { useFeedStore } = await import('@/store/feedStore');
+      const feedStore = useFeedStore();
+      await feedStore.loadUserStats();
       
       if (globalNotifications?.success) {
         globalNotifications.success(response.message);

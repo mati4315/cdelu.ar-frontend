@@ -99,8 +99,23 @@ export default defineConfig({
     assetsDir: 'assets',
     rollupOptions: {
       output: {
-        manualChunks: undefined // Evitar chunks complejos que pueden causar problemas en hosting compartido
+        manualChunks: {
+          'vendor': ['vue', 'vue-router', 'pinia'],
+          'ui': ['@vueuse/core'],
+          'video': ['hls.js']
+        }
       }
-    }
+    },
+    // Optimización de build
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true
+      }
+    },
+    // Preload crítico
+    cssCodeSplit: true,
+    sourcemap: false
   }
 }) 

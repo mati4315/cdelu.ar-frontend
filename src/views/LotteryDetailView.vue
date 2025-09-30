@@ -307,7 +307,7 @@ const loadLottery = async () => {
     }
 
     // Cargar ganadores si la lotería ha terminado
-    if (lottery.value.status === 'finished') {
+    if (lottery.value && lottery.value.status === 'finished') {
       await loadWinners();
     }
 

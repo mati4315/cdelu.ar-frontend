@@ -4,6 +4,10 @@ import App from './App.vue'
 import router from './router'
 import './styles/main.css' // Importar Tailwind CSS
 import { analyticsService } from './services/analyticsService'
+import { preloadCriticalResources } from './composables/usePerformance'
+
+// Preload de recursos críticos
+preloadCriticalResources();
 
 const app = createApp(App)
 
